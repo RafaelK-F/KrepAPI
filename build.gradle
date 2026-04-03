@@ -51,17 +51,20 @@ dependencies {
 processResources {
     inputs.property "version", project.version
     inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "minecraft_version_range", project.minecraft_version_range
     inputs.property "loader_version", project.loader_version
     filteringCharset "UTF-8"
 
     filesMatching("fabric.mod.json") {
         expand "version": project.version,
                 "minecraft_version": project.minecraft_version,
+                "minecraft_version_range": project.minecraft_version_range,
                 "loader_version": project.loader_version
     }
 }
 
-def targetJavaVersion = 25
+// Java 21 bytecode runs on typical 1.21.4–1.21.11 installs (Java 21+); avoid Java 25-only class file format.
+def targetJavaVersion = 21
 tasks.withType(JavaCompile).configureEach {
     // ensure that the encoding is set to UTF-8, no matter what the system default is
     // this fixes some edge cases with special characters not displaying correctly

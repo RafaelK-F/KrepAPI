@@ -9,8 +9,6 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.util.Identifier;
 import net.shik.krepapi.net.KrepapiKeyActionC2SPayload;
 import net.shik.krepapi.protocol.ProtocolMessages;
 
@@ -18,8 +16,6 @@ import net.shik.krepapi.protocol.ProtocolMessages;
  * Registers {@link KeyBinding}s for the current server's binding list and sends {@link KrepapiKeyActionC2SPayload} on press.
  */
 public final class ServerBindingManager {
-    private static final KeyBinding.Category SERVER_CATEGORY = KeyBinding.Category.create(Identifier.of("krepapi", "server"));
-
     private static final Map<String, KeyBinding> ACTIVE = new HashMap<>();
     private static final AtomicInteger SEQUENCE = new AtomicInteger();
 
@@ -31,12 +27,7 @@ public final class ServerBindingManager {
         KrepapiKeyPipeline.setServerOverrideBindings(entries);
         for (ProtocolMessages.BindingEntry e : entries) {
             String translationKey = "krepapi.server." + sanitize(e.actionId());
-            KeyBinding mapping = new KeyBinding(
-                    translationKey,
-                    InputUtil.Type.KEYSYM,
-                    e.defaultKey(),
-                    SERVER_CATEGORY
-            );
+            KeyBinding mapping = KeyBindingCompat.createServerBinding(translationKey, e.defaultKey());
             KeyBindingHelper.registerKeyBinding(mapping);
             ACTIVE.put(e.actionId(), mapping);
         }
