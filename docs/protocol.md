@@ -26,6 +26,20 @@ Identifiers match vanilla custom payload ids (`namespace:path`):
 
 Constants live in [`KrepapiChannels`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiChannels.java).
 
+## Limits (decode / encode)
+
+[`ProtocolBuf`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/ProtocolBuf.java) caps generic UTF-8 segments at **32767 bytes** (Minecraft-style), including `minModVersion`, `modVersion`, and binding `displayName`.
+
+[`ProtocolMessages`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/ProtocolMessages.java) additionally defines:
+
+| Constant | Value | Applies to |
+| --- | --- | --- |
+| `MAX_BINDING_ENTRIES` | 2048 | `s2c_bindings` row count |
+| `MAX_ACTION_ID_UTF8_BYTES` | 256 | `actionId` in bindings and `c2s_key_action` |
+| `MAX_CATEGORY_UTF8_BYTES` | 256 | binding `category` |
+
+Encoded `s2c_bindings` is rejected if the computed size exceeds a large internal cap (50 MiB) to bound allocations. Fabric `PacketCodec` paths use the same string maxima.
+
 ## `s2c_hello`
 
 | Field | Type |
@@ -49,7 +63,7 @@ Constants live in [`KrepapiChannels`](https://github.com/RafaelK-F/KrepAPI/blob/
 | Field | Type |
 | --- | --- |
 | count | varint |
-| × count | `actionId` UTF-8, `displayName` UTF-8, `defaultKey` varint (GLFW key), `overrideVanilla` boolean, `category` UTF-8 |
+| × count | `actionId` UTF-8 (≤ 256 B), `displayName` UTF-8 (≤ 32767 B), `defaultKey` varint (GLFW key), `overrideVanilla` boolean, `category` UTF-8 (≤ 256 B) |
 
 Large lists may use Fabric `registerLarge` on the client mod; Paper should keep payloads within server limits or split logic client-side.
 
@@ -57,7 +71,7 @@ Large lists may use Fabric `registerLarge` on the client mod; Paper should keep 
 
 | Field | Type |
 | --- | --- |
-| actionId | UTF-8 |
+| actionId | UTF-8 (≤ 256 B) |
 | phase | byte (`0` press, `1` release) |
 | sequence | varint (monotonic per client) |
 
@@ -75,3 +89,5 @@ See [`KrepapiKickReasons`](https://github.com/RafaelK-F/KrepAPI/blob/main/protoc
 ## Paper vs Fabric
 
 Paper sends the same bytes via `Player.sendPluginMessage(plugin, channel, byte[])`. The Fabric client registers the same payload ids, so no separate "legacy channel" is required when using standard plugin channels on 1.21+.
+
+**Key actions (`c2s_key_action`):** The reference **Paper** plugin logs incoming key-action packets for debugging. The **Fabric** server module in this repository does not implement gameplay for key actions by default; mods can handle them by registering [`KrepapiFabricServerNetworking.registerKeyActionListener`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java). If no listener is registered, packets are accepted and ignored.

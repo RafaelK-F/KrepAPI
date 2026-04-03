@@ -4,9 +4,13 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -24,9 +28,22 @@ import net.shik.krepapi.protocol.KrepapiVersionPolicy;
 import net.shik.krepapi.protocol.ProtocolMessages;
 
 public final class KrepapiFabricServerNetworking {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("krepapi");
+
+    /**
+     * Receives {@link KrepapiKeyActionC2SPayload} on the dedicated server when mods register a listener.
+     * The built-in mod does not implement gameplay handling; Paper users get logging from KrepAPI-Paper instead.
+     */
+    @FunctionalInterface
+    public interface KeyActionListener {
+        void onKeyAction(ServerPlayerEntity player, KrepapiKeyActionC2SPayload payload);
+    }
+
     public static final KrepapiFabricHandshakeState HANDSHAKE = new KrepapiFabricHandshakeState();
     private static final Map<UUID, Integer> HANDSHAKE_TICKS = new ConcurrentHashMap<>();
     private static final CopyOnWriteArrayList<ModConstraint> MOD_CONSTRAINTS = new CopyOnWriteArrayList<>();
+    private static final CopyOnWriteArrayList<KeyActionListener> KEY_ACTION_LISTENERS = new CopyOnWriteArrayList<>();
 
     /** If true on a dedicated server, players without a valid handshake are kicked. */
     public static volatile boolean requireClientOnDedicatedServer = false;
@@ -60,6 +77,14 @@ public final class KrepapiFabricServerNetworking {
 
     private static List<KrepapiVersionPolicy.Constraint> snapshotConstraints() {
         return MOD_CONSTRAINTS.stream().map(ModConstraint::constraint).toList();
+    }
+
+    public static void registerKeyActionListener(KeyActionListener listener) {
+        KEY_ACTION_LISTENERS.add(Objects.requireNonNull(listener, "listener"));
+    }
+
+    public static void unregisterKeyActionListener(KeyActionListener listener) {
+        KEY_ACTION_LISTENERS.remove(listener);
     }
 
     private record ModConstraint(String modId, KrepapiVersionPolicy.Constraint constraint) {
@@ -117,6 +142,14 @@ public final class KrepapiFabricServerNetworking {
         });
 
         ServerPlayNetworking.registerGlobalReceiver(KrepapiKeyActionC2SPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            for (KeyActionListener listener : KEY_ACTION_LISTENERS) {
+                try {
+                    listener.onKeyAction(player, payload);
+                } catch (Throwable t) {
+                    LOGGER.error("KrepAPI key action listener failed", t);
+                }
+            }
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -145,6 +178,9 @@ public final class KrepapiFabricServerNetworking {
     }
 
     public static void sendBindings(ServerPlayerEntity player, List<ProtocolMessages.BindingEntry> entries) {
+        if (entries.size() > ProtocolMessages.MAX_BINDING_ENTRIES) {
+            throw new IllegalArgumentException("too many binding entries: " + entries.size());
+        }
         ArrayList<ProtocolMessages.BindingEntry> copy = new ArrayList<>(entries);
         copy.sort(Comparator.comparing(ProtocolMessages.BindingEntry::actionId));
         ServerPlayNetworking.send(player, new KrepapiBindingsS2CPayload(copy));
