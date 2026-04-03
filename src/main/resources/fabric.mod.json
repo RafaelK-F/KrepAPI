@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "krepapi",
+  "version": "${version}",
+  "name": "KrepAPI",
+  "description": "text",
+  "authors": [],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/krepapi/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-datagen": [
+      "net.shik.krepapi.client.KrepapiDataGenerator"
+    ],
+    "client": [
+      "net.shik.krepapi.client.KrepapiClient"
+    ],
+    "main": [
+      "net.shik.krepapi.Krepapi"
+    ]
+  },
+  "mixins": [
+    "krepapi.mixins.json",
+    {
+      "config": "krepapi.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
