@@ -1,6 +1,6 @@
 # KrepAPI
 
-Fabric client mod (Minecraft **1.21.x** / Yarn; see `gradle.properties` for the exact game and loader pins) plus a shared binary protocol for **server-driven key bindings**, **raw key events** with optional **vanilla blocking**, and an optional **handshake** so Paper or Fabric dedicated servers can require the mod.
+Fabric client bridge for servers: custom key bindings synced from the host, optional raw-key hooks for addons, and a handshake so Paper/Fabric servers can require this mod. Install only on servers that use KrepAPI. Needs Fabric API.
 
 The server never touches GLFW directly; the client does not expose raw input without a server opt-in.
 
