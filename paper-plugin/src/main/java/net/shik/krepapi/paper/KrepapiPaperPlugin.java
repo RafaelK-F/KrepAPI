@@ -1,27 +1,34 @@
 package net.shik.krepapi.paper;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.jetbrains.annotations.NotNull;
 
 import net.kyori.adventure.text.Component;
+import net.shik.krepapi.protocol.KrepapiBuildVersion;
 import net.shik.krepapi.protocol.KrepapiChannels;
 import net.shik.krepapi.protocol.KrepapiKickReasons;
 import net.shik.krepapi.protocol.KrepapiProtocolVersion;
+import net.shik.krepapi.protocol.KrepapiVersionPolicy;
 import net.shik.krepapi.protocol.ProtocolMessages;
 
 public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, PluginMessageListener {
 
     private final Map<UUID, PendingHandshake> pending = new ConcurrentHashMap<>();
+    private final Map<Plugin, CopyOnWriteArrayList<KrepapiVersionPolicy.Constraint>> constraintsByPlugin = new ConcurrentHashMap<>();
 
     @Override
     public void onEnable() {
@@ -38,6 +45,24 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         getServer().getMessenger().unregisterIncomingPluginChannel(this, KrepapiChannels.C2S_CLIENT_INFO);
         getServer().getMessenger().unregisterIncomingPluginChannel(this, KrepapiChannels.C2S_KEY_ACTION);
         unregisterOutgoing();
+        constraintsByPlugin.clear();
+    }
+
+    /**
+     * Version requirements API for other plugins (constraints cleared when {@code plugin} disables).
+     */
+    public KrepapiPaperVersionGate versionGate(@NotNull Plugin plugin) {
+        return new KrepapiPaperVersionGate(this, plugin);
+    }
+
+    void registerVersionConstraint(@NotNull Plugin owner, @NotNull KrepapiVersionPolicy.Constraint constraint) {
+        constraintsByPlugin.computeIfAbsent(owner, p -> new CopyOnWriteArrayList<>()).add(constraint);
+    }
+
+    private List<KrepapiVersionPolicy.Constraint> snapshotConstraints() {
+        return constraintsByPlugin.values().stream()
+                .flatMap(List::stream)
+                .toList();
     }
 
     private void registerChannels() {
@@ -51,6 +76,11 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
     }
 
     @EventHandler
+    public void onPluginDisable(PluginDisableEvent event) {
+        constraintsByPlugin.remove(event.getPlugin());
+    }
+
+    @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         if (!getConfig().getBoolean("send-hello-on-join", true)) {
             return;
@@ -60,13 +90,15 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         byte flags = getConfig().getBoolean("require-krepapi", true)
                 ? ProtocolMessages.HELLO_FLAG_REQUIRE_RESPONSE
                 : 0;
-        String minVer = getConfig().getString("minimum-mod-version", "1.0");
-        pending.put(player.getUniqueId(), new PendingHandshake(nonce, minVer, false));
+        String configMin = getConfig().getString("minimum-mod-version", "1.0.0");
+        List<KrepapiVersionPolicy.Constraint> snap = snapshotConstraints();
+        String effectiveMin = KrepapiVersionPolicy.effectiveMinimum(configMin, snap);
+        pending.put(player.getUniqueId(), new PendingHandshake(nonce, effectiveMin, configMin, snap, false));
 
         byte[] payload = ProtocolMessages.encodeHello(new ProtocolMessages.Hello(
                 KrepapiProtocolVersion.CURRENT,
                 flags,
-                minVer,
+                effectiveMin,
                 nonce
         ));
         player.sendPluginMessage(this, KrepapiChannels.S2C_HELLO, payload);
@@ -144,9 +176,21 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
             player.kick(Component.text(KrepapiKickReasons.PROTOCOL_MISMATCH));
             return;
         }
-        String min = getConfig().getString("minimum-mod-version", "1.0");
-        if (info.modVersion().compareTo(min) < 0) {
-            player.kick(Component.text(KrepapiKickReasons.MOD_VERSION_TOO_OLD));
+        if (!KrepapiBuildVersion.isAtLeast(info.modVersion(), h.effectiveMin)) {
+            KrepapiVersionPolicy.Constraint fail = KrepapiVersionPolicy.strictestFailure(
+                    info.modVersion(),
+                    h.configMin,
+                    h.constraintsSnapshot
+            );
+            String kick;
+            if (fail != null && fail.featureId() != null) {
+                kick = KrepapiKickReasons.modBuildVersionTooOldForFeature(fail.featureId(), fail.minimumBuildVersion());
+            } else if (fail != null) {
+                kick = KrepapiKickReasons.modBuildVersionTooOld(fail.minimumBuildVersion());
+            } else {
+                kick = KrepapiKickReasons.modBuildVersionTooOld(h.effectiveMin);
+            }
+            player.kick(Component.text(kick));
         }
     }
 
@@ -161,13 +205,22 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
 
     private static final class PendingHandshake {
         final long nonce;
-        @SuppressWarnings("unused")
-        final String minModVersion;
+        final String effectiveMin;
+        final String configMin;
+        final List<KrepapiVersionPolicy.Constraint> constraintsSnapshot;
         volatile boolean answered;
 
-        PendingHandshake(long nonce, String minModVersion, boolean answered) {
+        PendingHandshake(
+                long nonce,
+                String effectiveMin,
+                String configMin,
+                List<KrepapiVersionPolicy.Constraint> constraintsSnapshot,
+                boolean answered
+        ) {
             this.nonce = nonce;
-            this.minModVersion = minModVersion;
+            this.effectiveMin = effectiveMin;
+            this.configMin = configMin;
+            this.constraintsSnapshot = constraintsSnapshot;
             this.answered = answered;
         }
     }

@@ -2,11 +2,16 @@
 
 Binary layout is implemented in [`ProtocolMessages`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/ProtocolMessages.java) and mirrored by Fabric `CustomPayload` + `StreamCodec` classes under `net.shik.krepapi.net`.
 
-## Versioning
+## Versioning (two layers)
 
-| Constant | Meaning |
-| --- | --- |
-| `KrepapiProtocolVersion.CURRENT` | Bump when field order or semantics change. |
+| Layer | Where | Meaning |
+| --- | --- | --- |
+| **Protocol version** | `protocolVersion` in packets, `KrepapiProtocolVersion.CURRENT` | Wire layout and field semantics. Bump when the binary format changes. |
+| **Build version** | `minModVersion` / `modVersion` (UTF-8 strings) | SemVer-style **KrepAPI client mod release** (e.g. `1.0.0`). Compared with [`KrepapiBuildVersion`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiBuildVersion.java) (numeric `major.minor.patch`, optional `-prerelease`; `+build` metadata ignored). Short cores like `1.0` are treated as `1.0.0`. |
+
+Servers compute an **effective** minimum build version from `config.yml` (Paper) or `KrepapiFabricServerNetworking.minimumModVersion` (Fabric) plus optional plugin/mod registrations; `s2c_hello.minModVersion` carries that effective value. The client still reports a **single** build string in `c2s_client_info.modVersion` (from `fabric.mod.json`).
+
+Shared helpers: [`KrepapiVersionPolicy`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiVersionPolicy.java) (aggregate minimum, kick messaging), [`KrepapiKickReasons`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiKickReasons.java).
 
 ## Channels (play phase)
 
@@ -14,8 +19,8 @@ Identifiers match vanilla custom payload ids (`namespace:path`):
 
 | Id | Direction | Purpose |
 | --- | --- | --- |
-| `krepapi:s2c_hello` | S → C | Handshake challenge + minimum mod version. |
-| `krepapi:c2s_client_info` | C → S | Client mod version, protocol version, capabilities, echoed nonce. |
+| `krepapi:s2c_hello` | S → C | Handshake challenge + minimum **client build** version (SemVer). |
+| `krepapi:c2s_client_info` | C → S | Client **build** version, protocol version, capabilities, echoed nonce. |
 | `krepapi:s2c_bindings` | S → C | Server-defined key bindings. |
 | `krepapi:c2s_key_action` | C → S | Key press/release for a binding `actionId`. |
 
@@ -27,7 +32,7 @@ Constants live in [`KrepapiChannels`](https://github.com/RafaelK-F/KrepAPI/blob/
 | --- | --- |
 | protocolVersion | varint |
 | flags | byte (`HELLO_FLAG_REQUIRE_RESPONSE = 1`) |
-| minModVersion | UTF-8 |
+| minModVersion | UTF-8 (minimum required KrepAPI client build version, SemVer) |
 | challengeNonce | int64 |
 
 ## `c2s_client_info`
@@ -35,7 +40,7 @@ Constants live in [`KrepapiChannels`](https://github.com/RafaelK-F/KrepAPI/blob/
 | Field | Type |
 | --- | --- |
 | protocolVersion | varint |
-| modVersion | UTF-8 |
+| modVersion | UTF-8 (client KrepAPI build version) |
 | capabilities | varint (bitfield, see `KrepapiCapabilities`) |
 | challengeNonce | int64 |
 

@@ -11,4 +11,19 @@ public final class KrepapiKickReasons {
 
     private KrepapiKickReasons() {
     }
+
+    /**
+     * Disconnect message when the client's build version is below the server's required minimum (SemVer).
+     */
+    public static String modBuildVersionTooOld(String requiredMinimum) {
+        return "KrepAPI client mod is too old. Required build version " + requiredMinimum + " or newer.";
+    }
+
+    /**
+     * Same as {@link #modBuildVersionTooOld(String)} but names a server-side feature / constraint label.
+     */
+    public static String modBuildVersionTooOldForFeature(String featureId, String requiredMinimum) {
+        return "KrepAPI client mod is too old for \"" + featureId + "\". Required build version "
+                + requiredMinimum + " or newer.";
+    }
 }
