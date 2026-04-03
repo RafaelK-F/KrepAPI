@@ -1,0 +1,30 @@
+package net.shik.krepapi.net;
+
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.packet.CustomPayload;
+import net.shik.krepapi.protocol.KrepapiChannels;
+
+public record KrepapiClientInfoC2SPayload(int protocolVersion, String modVersion, int capabilities, long challengeNonce) implements CustomPayload {
+    public static final CustomPayload.Id<KrepapiClientInfoC2SPayload> ID = CustomPayload.id(KrepapiChannels.C2S_CLIENT_INFO);
+
+    public static final StreamCodec<RegistryFriendlyByteBuf, KrepapiClientInfoC2SPayload> CODEC = StreamCodec.of(
+            (buf, payload) -> {
+                buf.writeVarInt(payload.protocolVersion());
+                buf.writeUtf(payload.modVersion());
+                buf.writeVarInt(payload.capabilities());
+                buf.writeLong(payload.challengeNonce());
+            },
+            buf -> new KrepapiClientInfoC2SPayload(
+                    buf.readVarInt(),
+                    buf.readUtf(),
+                    buf.readVarInt(),
+                    buf.readLong()
+            )
+    );
+
+    @Override
+    public Id<? extends CustomPayload> getId() {
+        return ID;
+    }
+}

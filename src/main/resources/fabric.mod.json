@@ -3,12 +3,13 @@
   "id": "krepapi",
   "version": "${version}",
   "name": "KrepAPI",
-  "description": "text",
-  "authors": [],
+  "description": "Client API for server-driven key bindings, raw key events, and optional mod requirement checks.",
+  "authors": [
+    "shik"
+  ],
   "contact": {},
   "license": "All-Rights-Reserved",
-  "icon": "assets/krepapi/icon.png",
-  "environment": "client",
+  "environment": "*",
   "entrypoints": {
     "fabric-datagen": [
       "net.shik.krepapi.client.KrepapiDataGenerator"

@@ -3,8 +3,10 @@ plugins {
     id 'maven-publish'
 }
 
-version = project.mod_version
-group = project.maven_group
+allprojects {
+    group = project.maven_group
+    version = project.mod_version
+}
 
 base {
     archivesName = project.archives_base_name
@@ -42,6 +44,8 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    implementation project(':protocol')
 }
 
 processResources {
