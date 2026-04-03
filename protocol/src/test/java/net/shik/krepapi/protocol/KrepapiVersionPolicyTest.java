@@ -39,4 +39,27 @@ class KrepapiVersionPolicyTest {
                 "1.0.0",
                 List.of(KrepapiVersionPolicy.Constraint.feature("x", "1.5.0"))));
     }
+
+    @Test
+    void effectiveMinimumWithEmptyRegisteredReturnsConfig() {
+        assertEquals("1.5.0", KrepapiVersionPolicy.effectiveMinimum("1.5.0", List.of()));
+    }
+
+    @Test
+    void effectiveMinimumWithNullConfigUsesOnlyRegistered() {
+        assertEquals(
+                "2.0.0",
+                KrepapiVersionPolicy.effectiveMinimum(
+                        null,
+                        List.of(
+                                KrepapiVersionPolicy.Constraint.global("1.0.0"),
+                                KrepapiVersionPolicy.Constraint.global("2.0.0"))));
+    }
+
+    @Test
+    void strictestFailureConfigOnlyWhenNoRegistered() {
+        KrepapiVersionPolicy.Constraint c = KrepapiVersionPolicy.strictestFailure("1.0.0", "1.5.0", List.of());
+        assertEquals(null, c.featureId());
+        assertEquals("1.5.0", c.minimumBuildVersion());
+    }
 }

@@ -62,6 +62,22 @@ class ProtocolMessagesTest {
     }
 
     @Test
+    void keyActionRoundTripPressAndRelease() {
+        ProtocolMessages.KeyAction press = new ProtocolMessages.KeyAction("open_menu", ProtocolMessages.KeyAction.PHASE_PRESS, 1);
+        byte[] encPress = ProtocolMessages.encodeKeyAction(press);
+        ProtocolMessages.KeyAction decPress = ProtocolMessages.decodeKeyAction(encPress);
+        assertEquals("open_menu", decPress.actionId());
+        assertEquals(ProtocolMessages.KeyAction.PHASE_PRESS, decPress.phase());
+        assertEquals(1, decPress.sequence());
+
+        ProtocolMessages.KeyAction release = new ProtocolMessages.KeyAction("open_menu", ProtocolMessages.KeyAction.PHASE_RELEASE, 2);
+        byte[] encRel = ProtocolMessages.encodeKeyAction(release);
+        ProtocolMessages.KeyAction decRel = ProtocolMessages.decodeKeyAction(encRel);
+        assertEquals(ProtocolMessages.KeyAction.PHASE_RELEASE, decRel.phase());
+        assertEquals(2, decRel.sequence());
+    }
+
+    @Test
     void readUtfRespectsMaxSegmentLength() {
         ByteBuffer buf = ByteBuffer.allocate(64);
         ProtocolBuf.writeUtf(buf, "hello", 10);

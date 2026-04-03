@@ -197,7 +197,13 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
     private void onKeyAction(Player player, byte[] message) {
         try {
             ProtocolMessages.KeyAction a = ProtocolMessages.decodeKeyAction(message);
-            getLogger().info("[KrepAPI] " + player.getName() + " key " + a.actionId() + " seq=" + a.sequence());
+            String phaseName = switch (a.phase()) {
+                case ProtocolMessages.KeyAction.PHASE_PRESS -> "press";
+                case ProtocolMessages.KeyAction.PHASE_RELEASE -> "release";
+                default -> "unknown(" + a.phase() + ")";
+            };
+            getLogger().info("[KrepAPI] " + player.getName() + " key " + a.actionId()
+                    + " phase=" + phaseName + " seq=" + a.sequence());
         } catch (RuntimeException ex) {
             getLogger().warning("Bad key_action from " + player.getName());
         }

@@ -12,7 +12,7 @@ Player joins
             └─► Client replies             c2s_client_info  (version, capabilities, nonce echo)
                     └─► Server sends        s2c_bindings     (actionId list + default keys)
                                 └─► Client registers KeyMapping entries
-                                        └─► On press → c2s_key_action (actionId, phase, seq)
+                                        └─► On press/release → c2s_key_action (actionId, phase, seq)
 ```
 
 ## Versioning
@@ -32,7 +32,10 @@ There are two layers: a wire **protocol version** (packet layout, `KrepapiProtoc
 ```bash
 ./gradlew build
 ./gradlew :paper-plugin:jar
+./gradlew :protocol:test
 ```
+
+The `:protocol:test` task runs JUnit tests for encode/decode, version comparison, and version policy only (no Minecraft on the classpath).
 
 On Windows, use `gradlew.bat` from a shell in the repo root (or `./gradlew` in Git Bash).
 
