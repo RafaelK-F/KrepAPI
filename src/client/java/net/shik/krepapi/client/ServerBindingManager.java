@@ -5,20 +5,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.mojang.blaze3d.platform.InputConstants;
-
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
+import net.minecraft.util.Identifier;
 import net.shik.krepapi.net.KrepapiKeyActionC2SPayload;
 import net.shik.krepapi.protocol.ProtocolMessages;
 
 /**
- * Registers {@link KeyMapping}s for the current server's binding list and sends {@link KrepapiKeyActionC2SPayload} on press.
+ * Registers {@link KeyBinding}s for the current server's binding list and sends {@link KrepapiKeyActionC2SPayload} on press.
  */
 public final class ServerBindingManager {
-    private static final Map<String, KeyMapping> ACTIVE = new HashMap<>();
+    private static final KeyBinding.Category SERVER_CATEGORY = KeyBinding.Category.create(Identifier.of("krepapi", "server"));
+
+    private static final Map<String, KeyBinding> ACTIVE = new HashMap<>();
     private static final AtomicInteger SEQUENCE = new AtomicInteger();
 
     private ServerBindingManager() {
@@ -29,11 +31,11 @@ public final class ServerBindingManager {
         KrepapiKeyPipeline.setServerOverrideBindings(entries);
         for (ProtocolMessages.BindingEntry e : entries) {
             String translationKey = "krepapi.server." + sanitize(e.actionId());
-            KeyMapping mapping = new KeyMapping(
+            KeyBinding mapping = new KeyBinding(
                     translationKey,
-                    InputConstants.Type.KEYSYM,
+                    InputUtil.Type.KEYSYM,
                     e.defaultKey(),
-                    "key.categories.krepapi.server"
+                    SERVER_CATEGORY
             );
             KeyBindingHelper.registerKeyBinding(mapping);
             ACTIVE.put(e.actionId(), mapping);
@@ -49,9 +51,9 @@ public final class ServerBindingManager {
         if (client.player == null || client.getNetworkHandler() == null) {
             return;
         }
-        for (Map.Entry<String, KeyMapping> e : ACTIVE.entrySet()) {
-            KeyMapping km = e.getValue();
-            while (km.consumeClick()) {
+        for (Map.Entry<String, KeyBinding> e : ACTIVE.entrySet()) {
+            KeyBinding km = e.getValue();
+            while (km.wasPressed()) {
                 int seq = SEQUENCE.incrementAndGet();
                 ClientPlayNetworking.send(new KrepapiKeyActionC2SPayload(
                         e.getKey(),
