@@ -35,7 +35,7 @@ If a binding entry has `overrideVanilla: true`, the client adds the binding's **
 On `s2c_hello`, the client automatically sends `c2s_client_info` with:
 
 * `KrepapiProtocolVersion.CURRENT`
-* **Build version** — the KrepAPI mod version string from `fabric.mod.json` / Gradle (use [SemVer](https://semver.org/) for releases, e.g. `1.0.0`, so server comparisons stay predictable)
+* **Build version** — the KrepAPI mod version string from `fabric.mod.json` / Gradle (use [SemVer](https://semver.org/) for releases, e.g. `1.0.1`, so server comparisons stay predictable)
 * Capabilities: `KEY_OVERRIDE | RAW_KEYS`
 
 ## Fabric dedicated server

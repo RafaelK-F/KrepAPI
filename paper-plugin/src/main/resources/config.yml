@@ -1,7 +1,7 @@
 # Require KrepAPI client on the mod channel (kick after timeout if no valid client info).
 require-krepapi: true
 # Minimum KrepAPI client build version (SemVer 2.0: major.minor.patch; short forms like 1.0 count as 1.0.0).
-minimum-mod-version: "1.0.0"
+minimum-mod-version: "1.0.1"
 # Ticks before kicking when require-krepapi is true (20 ticks = 1 s).
 handshake-timeout-ticks: 200
 # Send s2c_hello on join (client answers with c2s_client_info).

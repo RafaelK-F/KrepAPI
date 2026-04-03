@@ -90,7 +90,7 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         byte flags = getConfig().getBoolean("require-krepapi", true)
                 ? ProtocolMessages.HELLO_FLAG_REQUIRE_RESPONSE
                 : 0;
-        String configMin = getConfig().getString("minimum-mod-version", "1.0.0");
+        String configMin = getConfig().getString("minimum-mod-version", "1.0.1");
         List<KrepapiVersionPolicy.Constraint> snap = snapshotConstraints();
         String effectiveMin = KrepapiVersionPolicy.effectiveMinimum(configMin, snap);
         pending.put(player.getUniqueId(), new PendingHandshake(nonce, effectiveMin, configMin, snap, false));
