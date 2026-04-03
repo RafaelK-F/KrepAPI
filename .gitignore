@@ -1,0 +1,45 @@
+# Gradle — Downloads & Build
+.gradle/
+**/build/
+
+# Loom (zusätzliche Caches neben build/)
+**/loom-cache/
+
+# Fabric Dev-Client / -Server im Projektordner
+run/
+
+# Java
+*.class
+hs_err_pid*
+replay_pid*
+
+# IDE — JetBrains
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# IDE — Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# IDE — VS Code (lokal)
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs & Editor-Temp
+*.log
+*.tmp
+*.temp
+*.swp
+*~
+
+# Sonstiges
+target/

@@ -15,7 +15,7 @@ public final class KrepapiClientNetworking {
     }
 
     public static void register() {
-        ClientPlayNetworking.registerGlobalReceiver(KrepapiHelloS2CPayload.ID, (payload, context) -> {
+        ClientPlayNetworking.registerGlobalReceiver(KrepapiHelloS2CPayload.TYPE, (payload, context) -> {
             String modVersion = FabricLoader.getInstance()
                     .getModContainer("krepapi")
                     .map(c -> c.getMetadata().getVersion().getFriendlyString())
@@ -29,7 +29,7 @@ public final class KrepapiClientNetworking {
             ));
         });
 
-        ClientPlayNetworking.registerGlobalReceiver(KrepapiBindingsS2CPayload.ID, (payload, context) -> {
+        ClientPlayNetworking.registerGlobalReceiver(KrepapiBindingsS2CPayload.TYPE, (payload, context) -> {
             MinecraftClient client = context.client();
             client.execute(() -> ServerBindingManager.applyBindings(client, payload.entries()));
         });

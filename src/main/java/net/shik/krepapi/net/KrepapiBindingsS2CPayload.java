@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
 import net.shik.krepapi.protocol.KrepapiChannels;
 import net.shik.krepapi.protocol.ProtocolMessages;
@@ -12,7 +12,7 @@ import net.shik.krepapi.protocol.ProtocolMessages;
 public record KrepapiBindingsS2CPayload(List<ProtocolMessages.BindingEntry> entries) implements CustomPayload {
     public static final CustomPayload.Id<KrepapiBindingsS2CPayload> ID = CustomPayload.id(KrepapiChannels.S2C_BINDINGS);
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, KrepapiBindingsS2CPayload> CODEC = StreamCodec.of(
+    public static final PacketCodec<RegistryFriendlyByteBuf, KrepapiBindingsS2CPayload> CODEC = PacketCodec.of(
             (buf, payload) -> {
                 buf.writeVarInt(payload.entries().size());
                 for (ProtocolMessages.BindingEntry e : payload.entries()) {
@@ -38,6 +38,8 @@ public record KrepapiBindingsS2CPayload(List<ProtocolMessages.BindingEntry> entr
                 return new KrepapiBindingsS2CPayload(List.copyOf(list));
             }
     );
+
+    public static final CustomPayload.Type<KrepapiBindingsS2CPayload> TYPE = new CustomPayload.Type<>(ID, CODEC);
 
     @Override
     public Id<? extends CustomPayload> getId() {

@@ -10,10 +10,10 @@ public final class KrepapiNetworking {
     }
 
     public static void registerPayloadTypes() {
-        PayloadTypeRegistry.clientboundPlay().register(KrepapiHelloS2CPayload.ID, KrepapiHelloS2CPayload.CODEC);
-        PayloadTypeRegistry.clientboundPlay().registerLarge(KrepapiBindingsS2CPayload.ID, KrepapiBindingsS2CPayload.CODEC, 65536);
+        PayloadTypeRegistry.playS2C().register(KrepapiHelloS2CPayload.TYPE, KrepapiHelloS2CPayload.CODEC);
+        PayloadTypeRegistry.playS2C().registerLarge(KrepapiBindingsS2CPayload.TYPE, KrepapiBindingsS2CPayload.CODEC, 65536);
 
-        PayloadTypeRegistry.serverboundPlay().register(KrepapiClientInfoC2SPayload.ID, KrepapiClientInfoC2SPayload.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(KrepapiKeyActionC2SPayload.ID, KrepapiKeyActionC2SPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(KrepapiClientInfoC2SPayload.TYPE, KrepapiClientInfoC2SPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(KrepapiKeyActionC2SPayload.TYPE, KrepapiKeyActionC2SPayload.CODEC);
     }
 }

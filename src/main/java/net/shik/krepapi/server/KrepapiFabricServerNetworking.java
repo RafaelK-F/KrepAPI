@@ -53,7 +53,7 @@ public final class KrepapiFabricServerNetworking {
             }
         });
 
-        ServerPlayNetworking.registerGlobalReceiver(KrepapiClientInfoC2SPayload.ID, (payload, context) -> {
+        ServerPlayNetworking.registerGlobalReceiver(KrepapiClientInfoC2SPayload.TYPE, (payload, context) -> {
             ServerPlayerEntity player = context.player();
             if (!HANDSHAKE.markAnswered(player.getUuid(), payload.challengeNonce())) {
                 return;
@@ -67,7 +67,7 @@ public final class KrepapiFabricServerNetworking {
             }
         });
 
-        ServerPlayNetworking.registerGlobalReceiver(KrepapiKeyActionC2SPayload.ID, (payload, context) -> {
+        ServerPlayNetworking.registerGlobalReceiver(KrepapiKeyActionC2SPayload.TYPE, (payload, context) -> {
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
