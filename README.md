@@ -1,6 +1,23 @@
 # KrepAPI
 
-Fabric client mod (Minecraft 1.21.11 / Yarn) plus a shared binary protocol for **server-driven key bindings**, **raw key events** with optional **vanilla blocking**, and an optional **handshake** so Paper or Fabric dedicated servers can require the mod.
+Fabric client mod (Minecraft **1.21.x** / Yarn; see `gradle.properties` for the exact game and loader pins) plus a shared binary protocol for **server-driven key bindings**, **raw key events** with optional **vanilla blocking**, and an optional **handshake** so Paper or Fabric dedicated servers can require the mod.
+
+The server never touches GLFW directly; the client does not expose raw input without a server opt-in.
+
+## How it works
+
+```
+Player joins
+    └─► Server sends       s2c_hello        (protocolVersion, minModVersion, nonce)
+            └─► Client replies             c2s_client_info  (version, capabilities, nonce echo)
+                    └─► Server sends        s2c_bindings     (actionId list + default keys)
+                                └─► Client registers KeyMapping entries
+                                        └─► On press → c2s_key_action (actionId, phase, seq)
+```
+
+## Versioning
+
+There are two layers: a wire **protocol version** (packet layout, `KrepapiProtocolVersion.CURRENT`) and a SemVer **build version** for the client mod (`fabric.mod.json` / handshake strings). Servers can enforce minimums via config and APIs; see [docs/protocol.md](docs/protocol.md).
 
 ## Modules
 
@@ -17,6 +34,8 @@ Fabric client mod (Minecraft 1.21.11 / Yarn) plus a shared binary protocol for *
 ./gradlew :paper-plugin:jar
 ```
 
+On Windows, use `gradlew.bat` from a shell in the repo root (or `./gradlew` in Git Bash).
+
 ### If configuration fails with `Failed download after 3 attempts`
 
 That happens while Loom fetches Minecraft or related files (Mojang / Fabric / libraries). It is usually environmental, not a project bug.
@@ -32,10 +51,22 @@ That happens while Loom fetches Minecraft or related files (Mojang / Fabric / li
 
 ## Documentation
 
+In-repo:
+
 - [Wire protocol](docs/protocol.md)
 - [Paper plugin](docs/paper-plugin.md)
 - [Client API](docs/client-api.md)
 
+Wiki (mirrors / extends the same topics):
+
+- [Protocol](https://github.com/RafaelK-F/KrepAPI/wiki/Protocol)
+- [Client API](https://github.com/RafaelK-F/KrepAPI/wiki/Client-API)
+- [Paper Plugin](https://github.com/RafaelK-F/KrepAPI/wiki/Paper-Plugin)
+
+## Security
+
+`c2s_key_action` is **untrusted input**. Rate-limit packets, validate `actionId` against bindings you sent, and avoid granting privileged actions based only on key packets. See [Paper plugin → Security](docs/paper-plugin.md#security) and the wiki.
+
 ## License
 
-See [LICENSE.txt](LICENSE.txt).
+See [LICENSE.md](LICENSE.md).
