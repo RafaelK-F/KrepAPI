@@ -41,15 +41,17 @@ public final class KrepapiFabricServerNetworking {
     }
 
     public static final KrepapiFabricHandshakeState HANDSHAKE = new KrepapiFabricHandshakeState();
+
+    /**
+     * Per-player tick counter while waiting for {@code c2s_client_info}. Cleared when the player answers,
+     * on handshake timeout (together with {@link #HANDSHAKE}), and on {@link ServerPlayConnectionEvents#DISCONNECT}.
+     */
     private static final Map<UUID, Integer> HANDSHAKE_TICKS = new ConcurrentHashMap<>();
     private static final CopyOnWriteArrayList<ModConstraint> MOD_CONSTRAINTS = new CopyOnWriteArrayList<>();
     private static final CopyOnWriteArrayList<KeyActionListener> KEY_ACTION_LISTENERS = new CopyOnWriteArrayList<>();
 
-    /** If true on a dedicated server, players without a valid handshake are kicked. */
-    public static volatile boolean requireClientOnDedicatedServer = false;
-    /** Config-style floor; combined with {@link #registerMinimumBuildVersion} / feature registrations. */
-    public static volatile String minimumModVersion = "1.0.0";
-    public static volatile int handshakeTimeoutTicks = 200;
+    /** Handshake and version-gate options for the dedicated Fabric server. */
+    public static final KrepapiFabricServerSettings settings = new KrepapiFabricServerSettings();
 
     private KrepapiFabricServerNetworking() {
     }
@@ -92,7 +94,7 @@ public final class KrepapiFabricServerNetworking {
 
     public static void register() {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
-            if (!requireClientOnDedicatedServer || !server.isDedicated()) {
+            if (!settings.requireClientOnDedicatedServer || !server.isDedicated()) {
                 return;
             }
             for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
@@ -103,8 +105,9 @@ public final class KrepapiFabricServerNetworking {
                     continue;
                 }
                 int t = HANDSHAKE_TICKS.merge(id, 1, Integer::sum);
-                if (t >= handshakeTimeoutTicks) {
+                if (t >= settings.handshakeTimeoutTicks) {
                     HANDSHAKE_TICKS.remove(id);
+                    HANDSHAKE.remove(id);
                     player.networkHandler.disconnect(Text.literal(KrepapiKickReasons.HANDSHAKE_TIMEOUT));
                 }
             }
@@ -155,10 +158,10 @@ public final class KrepapiFabricServerNetworking {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity player = handler.player;
             long nonce = server.getOverworld().getRandom().nextLong();
-            byte flags = requireClientOnDedicatedServer && server.isDedicated()
+            byte flags = settings.requireClientOnDedicatedServer && server.isDedicated()
                     ? ProtocolMessages.HELLO_FLAG_REQUIRE_RESPONSE
                     : 0;
-            String cfg = minimumModVersion;
+            String cfg = settings.minimumModVersion;
             List<KrepapiVersionPolicy.Constraint> snap = snapshotConstraints();
             String effectiveMin = KrepapiVersionPolicy.effectiveMinimum(cfg, snap);
             HANDSHAKE.begin(player.getUuid(), nonce, effectiveMin, flags != 0, cfg, snap);
@@ -172,8 +175,9 @@ public final class KrepapiFabricServerNetworking {
         });
 
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-            HANDSHAKE.remove(handler.player.getUuid());
-            HANDSHAKE_TICKS.remove(handler.player.getUuid());
+            UUID uuid = handler.player.getUuid();
+            HANDSHAKE.remove(uuid);
+            HANDSHAKE_TICKS.remove(uuid);
         });
     }
 

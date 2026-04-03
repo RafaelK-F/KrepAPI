@@ -54,6 +54,7 @@ public final class KrepapiKeyPipeline {
         for (RegisteredListener r : LISTENERS) {
             if (r.listener.onKey(event)) {
                 consume = true;
+                break;
             }
         }
         if (!consume && shouldConsumeForServerBinding(client, key, action)) {

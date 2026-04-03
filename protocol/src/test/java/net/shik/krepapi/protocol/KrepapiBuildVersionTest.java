@@ -44,4 +44,17 @@ class KrepapiBuildVersionTest {
         assertTrue(KrepapiBuildVersion.compare("not-a-version", "1.0.0") < 0);
         assertFalse(KrepapiBuildVersion.isAtLeast("not-a-version", "1.0.0"));
     }
+
+    @Test
+    void leadingVPrefixParsesAsNumeric() {
+        assertTrue(KrepapiBuildVersion.compare("v1.10.0", "1.9.0") > 0);
+        assertTrue(KrepapiBuildVersion.isAtLeast("v1.10.0", "1.9.0"));
+        assertEquals(0, KrepapiBuildVersion.compare("v1.0.0", "1.0.0"));
+    }
+
+    @Test
+    void dualUnparsableUsesLexicographicOrder() {
+        assertTrue(KrepapiBuildVersion.compare("aaa", "zzz") < 0);
+        assertTrue(KrepapiBuildVersion.compare("zzz", "aaa") > 0);
+    }
 }

@@ -7,6 +7,11 @@ import java.util.Objects;
 /**
  * Semantic version comparison for KrepAPI client build strings (SemVer 2.0 subset).
  * Build metadata after {@code +} is ignored. Short cores like {@code 1.0} are treated as {@code 1.0.0}.
+ * A single leading {@code v} or {@code V} is accepted when followed by a digit (e.g. {@code v1.10.0}).
+ * <p>
+ * Prefer numeric cores like {@code 1.10.0} in configs: comparison uses integer major/minor/patch when both
+ * sides parse. If <strong>both</strong> sides fail to parse, {@link #compare} falls back to
+ * {@link String#compareTo(String)} (lexicographic), which does not follow version order.
  */
 public final class KrepapiBuildVersion {
 
@@ -14,7 +19,10 @@ public final class KrepapiBuildVersion {
     }
 
     /**
-     * @return negative if {@code a < b}, zero if equal, positive if {@code a > b}; unparsable values sort before any parseable version
+     * @return negative if {@code a < b}, zero if equal, positive if {@code a > b}. Parsed versions use numeric
+     *         SemVer subset order; a string that does not parse sorts before any parsed version. If neither
+     *         {@code a} nor {@code b} parses, the result is {@code String.compareTo} on the original strings
+     *         (lexicographic, not version order).
      */
     public static int compare(String a, String b) {
         Parsed pa = tryParse(a);
@@ -63,6 +71,9 @@ public final class KrepapiBuildVersion {
         String s = raw.trim();
         if (s.isEmpty()) {
             return null;
+        }
+        if (s.length() >= 2 && (s.charAt(0) == 'v' || s.charAt(0) == 'V') && Character.isDigit(s.charAt(1))) {
+            s = s.substring(1);
         }
         int plus = s.indexOf('+');
         if (plus >= 0) {
