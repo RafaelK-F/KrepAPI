@@ -1,5 +1,8 @@
 # KrepAPI
 
+> [!IMPORTANT]
+> Roadmap: https://github.com/RafaelK-F/KrepAPI/wiki/Roadmap
+
 Fabric client bridge for servers: custom key bindings synced from the host, optional raw-key hooks for addons, and a handshake so Paper/Fabric servers can require this mod. Install only on servers that use KrepAPI. Needs Fabric API.
 
 The server never touches GLFW directly; the client does not expose raw input without a server opt-in.
