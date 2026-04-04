@@ -31,8 +31,13 @@ bin/
 
 # OS
 .DS_Store
+.AppleDouble      # NEU
+.LSOverride       # NEU
+._*               # NEU — macOS resource forks
 Thumbs.db
+ehthumbs.db       # NEU
 Desktop.ini
+$RECYCLE.BIN/     # NEU
 
 # Logs & Editor-Temp
 *.log
@@ -40,6 +45,8 @@ Desktop.ini
 *.temp
 *.swp
 *~
+*.orig            # NEU — Git merge-Artefakte
 
 # Sonstiges
 target/
+local.properties  # NEU — lokale Build-Config (zB SDK-Pfade)
