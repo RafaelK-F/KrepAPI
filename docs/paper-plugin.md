@@ -28,7 +28,7 @@ Other plugins can depend on the `:protocol` Gradle project (or copy the `net.shi
 | Key | Default | Description |
 | --- | --- | --- |
 | `require-krepapi` | `true` | Kick after `handshake-timeout-ticks` if no valid `c2s_client_info`. |
-| `minimum-mod-version` | `1.0.2` | SemVer floor for the client KrepAPI build; combined with API registrations (see below). Use numeric cores (e.g. `1.10.0`); `1.9` vs `1.10` compare numerically when both parse. Leading `v` is accepted (e.g. `v1.2.0`). If a value cannot be parsed, ordering falls back to lexicographic string compare only when both sides are unparsable. |
+| `minimum-mod-version` | `1.1.0` | SemVer floor for the client KrepAPI build; combined with API registrations (see below). Use numeric cores (e.g. `1.10.0`); `1.9` vs `1.10` compare numerically when both parse. Leading `v` is accepted (e.g. `v1.2.0`). If a value cannot be parsed, ordering falls back to lexicographic string compare only when both sides are unparsable. |
 | `handshake-timeout-ticks` | `200` | Timeout (20 ticks = 1 s). |
 | `send-hello-on-join` | `true` | Send `s2c_hello` on join. |
 | `example-bindings` | `true` | Push a sample binding after join. |

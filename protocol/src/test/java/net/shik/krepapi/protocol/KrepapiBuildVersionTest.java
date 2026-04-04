@@ -11,9 +11,9 @@ class KrepapiBuildVersionTest {
     @Test
     void shortCoreTreatedAsZeroPatch() {
         assertEquals(0, KrepapiBuildVersion.compare("1.0", "1.0.0"));
-        assertTrue(KrepapiBuildVersion.compare("1.0", "1.0.2") < 0);
-        assertFalse(KrepapiBuildVersion.isAtLeast("1.0", "1.0.2"));
-        assertTrue(KrepapiBuildVersion.isAtLeast("1.0.2", "1.0"));
+        assertTrue(KrepapiBuildVersion.compare("1.0", "1.1.0") < 0);
+        assertFalse(KrepapiBuildVersion.isAtLeast("1.0", "1.1.0"));
+        assertTrue(KrepapiBuildVersion.isAtLeast("1.1.0", "1.0"));
     }
 
     @Test
@@ -24,33 +24,33 @@ class KrepapiBuildVersionTest {
 
     @Test
     void buildMetadataIgnored() {
-        assertEquals(0, KrepapiBuildVersion.compare("1.0.2+build.1", "1.0.2+build.2"));
-        assertTrue(KrepapiBuildVersion.isAtLeast("1.0.2+abc", "1.0.2"));
+        assertEquals(0, KrepapiBuildVersion.compare("1.1.0+build.1", "1.1.0+build.2"));
+        assertTrue(KrepapiBuildVersion.isAtLeast("1.1.0+abc", "1.1.0"));
     }
 
     @Test
     void prereleaseLessThanRelease() {
-        assertTrue(KrepapiBuildVersion.compare("1.0.2-alpha", "1.0.2") < 0);
-        assertTrue(KrepapiBuildVersion.compare("1.0.2", "1.0.2-beta") > 0);
+        assertTrue(KrepapiBuildVersion.compare("1.1.0-alpha", "1.1.0") < 0);
+        assertTrue(KrepapiBuildVersion.compare("1.1.0", "1.1.0-beta") > 0);
     }
 
     @Test
     void maxPicksHighest() {
-        assertEquals("2.0.0", KrepapiBuildVersion.max("1.0.2", "2.0.0", "1.9.9"));
+        assertEquals("2.0.0", KrepapiBuildVersion.max("1.1.0", "2.0.0", "1.9.9"));
         assertEquals("1.2.0", KrepapiBuildVersion.max("1.2.0", "1.1.0"));
     }
 
     @Test
     void unparsableSortsBeforeParsable() {
-        assertTrue(KrepapiBuildVersion.compare("not-a-version", "1.0.2") < 0);
-        assertFalse(KrepapiBuildVersion.isAtLeast("not-a-version", "1.0.2"));
+        assertTrue(KrepapiBuildVersion.compare("not-a-version", "1.1.0") < 0);
+        assertFalse(KrepapiBuildVersion.isAtLeast("not-a-version", "1.1.0"));
     }
 
     @Test
     void leadingVPrefixParsesAsNumeric() {
         assertTrue(KrepapiBuildVersion.compare("v1.10.0", "1.9.0") > 0);
         assertTrue(KrepapiBuildVersion.isAtLeast("v1.10.0", "1.9.0"));
-        assertEquals(0, KrepapiBuildVersion.compare("v1.0.2", "1.0.2"));
+        assertEquals(0, KrepapiBuildVersion.compare("v1.1.0", "1.1.0"));
     }
 
     @Test

@@ -45,7 +45,7 @@ Fabric server: [`KrepapiFabricServerNetworking.sendRawCaptureConfig`](https://gi
 On `s2c_hello`, the client automatically sends `c2s_client_info` with:
 
 * `KrepapiProtocolVersion.CURRENT`
-* **Build version** — the KrepAPI mod version string from `fabric.mod.json` / Gradle (use [SemVer](https://semver.org/) for releases, e.g. `1.0.2`, so server comparisons stay predictable)
+* **Build version** — the KrepAPI mod version string from `fabric.mod.json` / Gradle (use [SemVer](https://semver.org/) for releases, e.g. `1.1.0`, so server comparisons stay predictable)
 * Capabilities: `KEY_OVERRIDE | RAW_KEYS | SERVER_RAW_CAPTURE | INTERCEPT_KEYS`
 
 ## Fabric dedicated server
