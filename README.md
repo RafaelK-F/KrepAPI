@@ -15,6 +15,8 @@ Player joins
                                         └─► On press/release → c2s_key_action (actionId, phase, seq)
 ```
 
+Protocol v2 adds optional `s2c_raw_capture` → `c2s_raw_key`, and `s2c_intercept_keys` for blocking vanilla handling of Esc / F3 / Tab / F1 / F5 (see [docs/protocol.md](docs/protocol.md)).
+
 ## Versioning
 
 There are two layers: a wire **protocol version** (packet layout, `KrepapiProtocolVersion.CURRENT`) and a SemVer **build version** for the client mod (`fabric.mod.json` / handshake strings). Servers can enforce minimums via config and APIs; see [docs/protocol.md](docs/protocol.md).
@@ -68,7 +70,7 @@ Wiki (mirrors / extends the same topics):
 
 ## Security
 
-`c2s_key_action` is **untrusted input**. Rate-limit packets, validate `actionId` against bindings you sent, and avoid granting privileged actions based only on key packets. See [Paper plugin → Security](docs/paper-plugin.md#security) and the wiki.
+`c2s_key_action` and `c2s_raw_key` are **untrusted input**. Rate-limit packets, validate `actionId` against bindings you sent, and avoid granting privileged actions based only on key packets. See [Paper plugin → Security](docs/paper-plugin.md#security) and the wiki.
 
 ## License
 

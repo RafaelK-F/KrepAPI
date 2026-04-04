@@ -37,6 +37,7 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getMessenger().registerIncomingPluginChannel(this, KrepapiChannels.C2S_CLIENT_INFO, this);
         getServer().getMessenger().registerIncomingPluginChannel(this, KrepapiChannels.C2S_KEY_ACTION, this);
+        getServer().getMessenger().registerIncomingPluginChannel(this, KrepapiChannels.C2S_RAW_KEY, this);
         getLogger().info("KrepAPI Paper reference enabled. Channels: " + KrepapiChannels.S2C_HELLO + ", ...");
     }
 
@@ -44,6 +45,7 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
     public void onDisable() {
         getServer().getMessenger().unregisterIncomingPluginChannel(this, KrepapiChannels.C2S_CLIENT_INFO);
         getServer().getMessenger().unregisterIncomingPluginChannel(this, KrepapiChannels.C2S_KEY_ACTION);
+        getServer().getMessenger().unregisterIncomingPluginChannel(this, KrepapiChannels.C2S_RAW_KEY);
         unregisterOutgoing();
         constraintsByPlugin.clear();
     }
@@ -68,11 +70,37 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
     private void registerChannels() {
         getServer().getMessenger().registerOutgoingPluginChannel(this, KrepapiChannels.S2C_HELLO);
         getServer().getMessenger().registerOutgoingPluginChannel(this, KrepapiChannels.S2C_BINDINGS);
+        getServer().getMessenger().registerOutgoingPluginChannel(this, KrepapiChannels.S2C_RAW_CAPTURE);
+        getServer().getMessenger().registerOutgoingPluginChannel(this, KrepapiChannels.S2C_INTERCEPT_KEYS);
     }
 
     private void unregisterOutgoing() {
         getServer().getMessenger().unregisterOutgoingPluginChannel(this, KrepapiChannels.S2C_HELLO);
         getServer().getMessenger().unregisterOutgoingPluginChannel(this, KrepapiChannels.S2C_BINDINGS);
+        getServer().getMessenger().unregisterOutgoingPluginChannel(this, KrepapiChannels.S2C_RAW_CAPTURE);
+        getServer().getMessenger().unregisterOutgoingPluginChannel(this, KrepapiChannels.S2C_INTERCEPT_KEYS);
+    }
+
+    /**
+     * Sends {@link KrepapiChannels#S2C_RAW_CAPTURE} using the shared binary layout from {@link ProtocolMessages}.
+     */
+    public void sendRawCaptureConfig(@NotNull Player player, @NotNull ProtocolMessages.RawCaptureConfig config) {
+        if (!player.isOnline()) {
+            return;
+        }
+        byte[] payload = ProtocolMessages.encodeRawCaptureConfig(config);
+        player.sendPluginMessage(this, KrepapiChannels.S2C_RAW_CAPTURE, payload);
+    }
+
+    /**
+     * Sends {@link KrepapiChannels#S2C_INTERCEPT_KEYS}. An empty entry list clears intercept rules on the client.
+     */
+    public void sendInterceptKeys(@NotNull Player player, @NotNull ProtocolMessages.InterceptKeysSync sync) {
+        if (!player.isOnline()) {
+            return;
+        }
+        byte[] payload = ProtocolMessages.encodeInterceptKeysSync(sync);
+        player.sendPluginMessage(this, KrepapiChannels.S2C_INTERCEPT_KEYS, payload);
     }
 
     @EventHandler
@@ -90,7 +118,7 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         byte flags = getConfig().getBoolean("require-krepapi", true)
                 ? ProtocolMessages.HELLO_FLAG_REQUIRE_RESPONSE
                 : 0;
-        String configMin = getConfig().getString("minimum-mod-version", "1.0.1");
+        String configMin = getConfig().getString("minimum-mod-version", "1.0.2");
         List<KrepapiVersionPolicy.Constraint> snap = snapshotConstraints();
         String effectiveMin = KrepapiVersionPolicy.effectiveMinimum(configMin, snap);
         pending.put(player.getUniqueId(), new PendingHandshake(nonce, effectiveMin, configMin, snap, false));
@@ -156,6 +184,8 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
             onClientInfo(player, message);
         } else if (KrepapiChannels.C2S_KEY_ACTION.equals(channel)) {
             onKeyAction(player, message);
+        } else if (KrepapiChannels.C2S_RAW_KEY.equals(channel)) {
+            onRawKey(player, message);
         }
     }
 
@@ -206,6 +236,22 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
                     + " phase=" + phaseName + " seq=" + a.sequence());
         } catch (RuntimeException ex) {
             getLogger().warning("Bad key_action from " + player.getName());
+        }
+    }
+
+    private void onRawKey(Player player, byte[] message) {
+        try {
+            ProtocolMessages.RawKeyEvent e = ProtocolMessages.decodeRawKeyEvent(message);
+            String actionName = switch (e.glfwAction()) {
+                case 0 -> "release";
+                case 1 -> "press";
+                case 2 -> "repeat";
+                default -> "unknown(" + e.glfwAction() + ")";
+            };
+            getLogger().info("[KrepAPI] " + player.getName() + " raw_key key=" + e.key()
+                    + " scancode=" + e.scancode() + " action=" + actionName + " seq=" + e.sequence());
+        } catch (RuntimeException ex) {
+            getLogger().warning("Bad raw_key from " + player.getName());
         }
     }
 

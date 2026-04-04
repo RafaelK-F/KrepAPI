@@ -4,7 +4,9 @@
   "package": "net.shik.krepapi.mixin.client",
   "compatibilityLevel": "JAVA_25",
   "client": [
-    "KeyboardMixin"
+    "GameMenuScreenMixin",
+    "KeyboardMixin",
+    "MinecraftClientMixin"
   ],
   "injectors": {
     "defaultRequire": 1

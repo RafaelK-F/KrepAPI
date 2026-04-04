@@ -28,15 +28,25 @@ Translation keys default to `krepapi.server.<sanitized_actionId>`. Add matching 
 
 ## Vanilla override from server
 
-If a binding entry has `overrideVanilla: true`, the client adds the binding's **default** GLFW key to a consume list in [`KrepapiKeyPipeline`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/client/java/net/shik/krepapi/client/KrepapiKeyPipeline.java). If the player rebound the key in controls, override matching may not apply until rebinding is reflected (limitation of this reference).
+If a binding entry has `overrideVanilla: true`, the client consumes **press, repeat, and release** for that binding’s **default** GLFW key in [`KrepapiKeyPipeline`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/client/java/net/shik/krepapi/client/KrepapiKeyPipeline.java) (tracked while the key is held) so vanilla does not see a one-sided press. If the player rebound the key in controls, override matching may not apply until rebinding is reflected (limitation of this reference).
+
+## Server-driven raw capture (protocol v2+)
+
+The server can send `s2c_raw_capture` (see [`ProtocolMessages.RawCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/ProtocolMessages.java)) so the client emits `c2s_raw_key` for all keys or a GLFW whitelist. Optional `consumeVanilla` suppresses vanilla handling for matching events. Processing order in [`KrepapiKeyPipeline.dispatch`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/client/java/net/shik/krepapi/client/KrepapiKeyPipeline.java): **mod `KrepApi` listeners first**, then server raw capture (send + optional consume), then intercept slots, then `overrideVanilla` for server bindings.
+
+Fabric server: [`KrepapiFabricServerNetworking.sendRawCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java). Paper: [`KrepapiPaperPlugin.sendRawCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/paper-plugin/src/main/java/net/shik/krepapi/paper/KrepapiPaperPlugin.java).
+
+## Intercept keys (protocol v2+)
+
+`s2c_intercept_keys` sets rules for Escape, F3, Tab, F1, and F5 (slot ids `0`–`4` in the protocol). When `blockVanilla` is true for a slot, the client blocks vanilla handling for that GLFW key (keyboard pipeline plus extra hooks for opening/closing the pause menu on Escape). Paper: `sendInterceptKeys`; Fabric: `sendInterceptKeys` on [`KrepapiFabricServerNetworking`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java).
 
 ## Handshake
 
 On `s2c_hello`, the client automatically sends `c2s_client_info` with:
 
 * `KrepapiProtocolVersion.CURRENT`
-* **Build version** — the KrepAPI mod version string from `fabric.mod.json` / Gradle (use [SemVer](https://semver.org/) for releases, e.g. `1.0.1`, so server comparisons stay predictable)
-* Capabilities: `KEY_OVERRIDE | RAW_KEYS`
+* **Build version** — the KrepAPI mod version string from `fabric.mod.json` / Gradle (use [SemVer](https://semver.org/) for releases, e.g. `1.0.2`, so server comparisons stay predictable)
+* Capabilities: `KEY_OVERRIDE | RAW_KEYS | SERVER_RAW_CAPTURE | INTERCEPT_KEYS`
 
 ## Fabric dedicated server
 

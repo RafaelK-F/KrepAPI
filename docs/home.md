@@ -12,8 +12,10 @@ Player joins
             └─► Fabric replies             c2s_client_info  (version, capabilities, nonce echo)
                     └─► Paper sends        s2c_bindings     (actionId list + default keys)
                                 └─► Fabric registers KeyMapping entries
-                                        └─► On press → c2s_key_action (actionId, phase, seq)
+                                        └─► On press/release → c2s_key_action (actionId, phase, seq)
 ```
+
+Optional (protocol v2+): `s2c_raw_capture` enables `c2s_raw_key` (GLFW events); `s2c_intercept_keys` blocks well-known keys (Esc, F3, Tab, F1, F5) for vanilla while held/configured.
 
 The server never touches GLFW directly; the client never exposes raw input without a server opt-in.
 
@@ -46,4 +48,4 @@ The server never touches GLFW directly; the client never exposes raw input witho
 
 ## Security note
 
-`c2s_key_action` is **untrusted input**. Always rate-limit incoming packets, validate `actionId` against what you sent in `s2c_bindings`, and never grant privileged actions based solely on key packets. See [Paper Plugin → Security](https://github.com/RafaelK-F/KrepAPI/wiki/Paper-Plugin#security) for details.
+`c2s_key_action` and `c2s_raw_key` are **untrusted input**. Always rate-limit incoming packets, validate `actionId` against what you sent in `s2c_bindings`, and never grant privileged actions based solely on key packets. Raw-key streams can be high volume and privacy-sensitive—only enable `s2c_raw_capture` when needed. See [Paper Plugin → Security](https://github.com/RafaelK-F/KrepAPI/wiki/Paper-Plugin#security) for details.

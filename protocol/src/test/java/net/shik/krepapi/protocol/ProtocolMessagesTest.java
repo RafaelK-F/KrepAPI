@@ -110,4 +110,59 @@ class ProtocolMessagesTest {
         assertEquals(ProtocolMessages.MAX_BINDING_ENTRIES, dec.entries().size());
         assertEquals("id0", dec.entries().getFirst().actionId());
     }
+
+    @Test
+    void rawCaptureConfigRoundTrip() {
+        var msg = new ProtocolMessages.RawCaptureConfig(
+                true,
+                ProtocolMessages.RAW_CAPTURE_MODE_WHITELIST,
+                true,
+                java.util.List.of(32, 256, 341)
+        );
+        byte[] enc = ProtocolMessages.encodeRawCaptureConfig(msg);
+        ProtocolMessages.RawCaptureConfig dec = ProtocolMessages.decodeRawCaptureConfig(enc);
+        assertEquals(true, dec.enabled());
+        assertEquals(ProtocolMessages.RAW_CAPTURE_MODE_WHITELIST, dec.mode());
+        assertEquals(true, dec.consumeVanilla());
+        assertEquals(java.util.List.of(32, 256, 341), dec.whitelistKeys());
+    }
+
+    @Test
+    void rawKeyEventRoundTrip() {
+        var ev = new ProtocolMessages.RawKeyEvent(65, 30, (byte) 1, 2, 99);
+        byte[] enc = ProtocolMessages.encodeRawKeyEvent(ev);
+        ProtocolMessages.RawKeyEvent dec = ProtocolMessages.decodeRawKeyEvent(enc);
+        assertEquals(65, dec.key());
+        assertEquals(30, dec.scancode());
+        assertEquals((byte) 1, dec.glfwAction());
+        assertEquals(2, dec.modifiers());
+        assertEquals(99, dec.sequence());
+    }
+
+    @Test
+    void interceptKeysSyncRoundTrip() {
+        var sync = new ProtocolMessages.InterceptKeysSync(java.util.List.of(
+                new ProtocolMessages.InterceptEntry(ProtocolMessages.INTERCEPT_SLOT_ESCAPE, true),
+                new ProtocolMessages.InterceptEntry(ProtocolMessages.INTERCEPT_SLOT_F3, false)
+        ));
+        byte[] enc = ProtocolMessages.encodeInterceptKeysSync(sync);
+        ProtocolMessages.InterceptKeysSync dec = ProtocolMessages.decodeInterceptKeysSync(enc);
+        assertEquals(2, dec.entries().size());
+        assertEquals(ProtocolMessages.INTERCEPT_SLOT_ESCAPE, dec.entries().getFirst().slotId());
+        assertEquals(true, dec.entries().getFirst().blockVanilla());
+    }
+
+    @Test
+    void encodeRawCaptureRejectsTooManyKeys() {
+        java.util.List<Integer> keys = new java.util.ArrayList<>();
+        for (int i = 0; i < ProtocolMessages.MAX_RAW_CAPTURE_KEYS + 1; i++) {
+            keys.add(i);
+        }
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ProtocolMessages.encodeRawCaptureConfig(
+                        new ProtocolMessages.RawCaptureConfig(true, ProtocolMessages.RAW_CAPTURE_MODE_WHITELIST, false, keys)
+                )
+        );
+    }
 }

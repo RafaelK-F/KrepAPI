@@ -7,8 +7,11 @@ import net.minecraft.client.MinecraftClient;
 import net.shik.krepapi.net.KrepapiBindingsS2CPayload;
 import net.shik.krepapi.net.KrepapiClientInfoC2SPayload;
 import net.shik.krepapi.net.KrepapiHelloS2CPayload;
+import net.shik.krepapi.net.KrepapiInterceptKeysS2CPayload;
+import net.shik.krepapi.net.KrepapiRawCaptureS2CPayload;
 import net.shik.krepapi.protocol.KrepapiCapabilities;
 import net.shik.krepapi.protocol.KrepapiProtocolVersion;
+import net.shik.krepapi.protocol.ProtocolMessages;
 
 public final class KrepapiClientNetworking {
     private KrepapiClientNetworking() {
@@ -20,7 +23,10 @@ public final class KrepapiClientNetworking {
                     .getModContainer("krepapi")
                     .map(c -> c.getMetadata().getVersion().getFriendlyString())
                     .orElse("0.0.0");
-            int caps = KrepapiCapabilities.KEY_OVERRIDE | KrepapiCapabilities.RAW_KEYS;
+            int caps = KrepapiCapabilities.KEY_OVERRIDE
+                    | KrepapiCapabilities.RAW_KEYS
+                    | KrepapiCapabilities.SERVER_RAW_CAPTURE
+                    | KrepapiCapabilities.INTERCEPT_KEYS;
             ClientPlayNetworking.send(new KrepapiClientInfoC2SPayload(
                     KrepapiProtocolVersion.CURRENT,
                     modVersion,
@@ -34,9 +40,20 @@ public final class KrepapiClientNetworking {
             client.execute(() -> ServerBindingManager.applyBindings(client, payload.entries()));
         });
 
+        ClientPlayNetworking.registerGlobalReceiver(KrepapiRawCaptureS2CPayload.ID, (payload, context) -> {
+            MinecraftClient client = context.client();
+            client.execute(() -> RawCaptureState.apply(payload.config()));
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(KrepapiInterceptKeysS2CPayload.ID, (payload, context) -> {
+            MinecraftClient client = context.client();
+            client.execute(() -> InterceptKeyState.apply(new ProtocolMessages.InterceptKeysSync(payload.entries())));
+        });
+
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             client.execute(() -> ServerBindingManager.clear(client));
-            KrepapiKeyPipeline.clearServerOverrides();
+            RawCaptureState.clear();
+            InterceptKeyState.clear();
         });
     }
 }

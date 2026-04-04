@@ -8,7 +8,8 @@ The [`paper-plugin`](https://github.com/RafaelK-F/KrepAPI/blob/main/paper-plugin
 * On join, sends `s2c_hello` and optionally waits for `c2s_client_info`.
 * Kicks players who miss the handshake when `require-krepapi: true` in `config.yml`.
 * After a short delay, sends example `s2c_bindings` (configurable).
-* Logs `c2s_key_action` payloads to the console.
+* Logs `c2s_key_action` and `c2s_raw_key` payloads to the console.
+* Exposes `sendRawCaptureConfig` and `sendInterceptKeys` for other plugins (same binary layout as Fabric).
 
 Build:
 
@@ -27,7 +28,7 @@ Other plugins can depend on the `:protocol` Gradle project (or copy the `net.shi
 | Key | Default | Description |
 | --- | --- | --- |
 | `require-krepapi` | `true` | Kick after `handshake-timeout-ticks` if no valid `c2s_client_info`. |
-| `minimum-mod-version` | `1.0.1` | SemVer floor for the client KrepAPI build; combined with API registrations (see below). Use numeric cores (e.g. `1.10.0`); `1.9` vs `1.10` compare numerically when both parse. Leading `v` is accepted (e.g. `v1.2.0`). If a value cannot be parsed, ordering falls back to lexicographic string compare only when both sides are unparsable. |
+| `minimum-mod-version` | `1.0.2` | SemVer floor for the client KrepAPI build; combined with API registrations (see below). Use numeric cores (e.g. `1.10.0`); `1.9` vs `1.10` compare numerically when both parse. Leading `v` is accepted (e.g. `v1.2.0`). If a value cannot be parsed, ordering falls back to lexicographic string compare only when both sides are unparsable. |
 | `handshake-timeout-ticks` | `200` | Timeout (20 ticks = 1 s). |
 | `send-hello-on-join` | `true` | Send `s2c_hello` on join. |
 | `example-bindings` | `true` | Push a sample binding after join. |
@@ -51,4 +52,4 @@ Registrations are removed when your plugin disables. The effective minimum sent 
 
 ## Security
 
-Treat `c2s_key_action` as untrusted: rate-limit, validate `actionId` against what you sent in `s2c_bindings`, and never grant privileged actions solely on key packets.
+Treat `c2s_key_action` and `c2s_raw_key` as untrusted: rate-limit, validate `actionId` against what you sent in `s2c_bindings`, and never grant privileged actions solely on key packets. Raw-key streams can be frequent and may reveal typing patterns—only enable capture for trusted gameplay modes.

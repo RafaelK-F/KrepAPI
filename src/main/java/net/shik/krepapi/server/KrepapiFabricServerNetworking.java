@@ -20,7 +20,10 @@ import net.minecraft.text.Text;
 import net.shik.krepapi.net.KrepapiBindingsS2CPayload;
 import net.shik.krepapi.net.KrepapiClientInfoC2SPayload;
 import net.shik.krepapi.net.KrepapiHelloS2CPayload;
+import net.shik.krepapi.net.KrepapiInterceptKeysS2CPayload;
 import net.shik.krepapi.net.KrepapiKeyActionC2SPayload;
+import net.shik.krepapi.net.KrepapiRawCaptureS2CPayload;
+import net.shik.krepapi.net.KrepapiRawKeyC2SPayload;
 import net.shik.krepapi.protocol.KrepapiBuildVersion;
 import net.shik.krepapi.protocol.KrepapiKickReasons;
 import net.shik.krepapi.protocol.KrepapiProtocolVersion;
@@ -40,6 +43,14 @@ public final class KrepapiFabricServerNetworking {
         void onKeyAction(ServerPlayerEntity player, KrepapiKeyActionC2SPayload payload);
     }
 
+    /**
+     * Receives {@link KrepapiRawKeyC2SPayload} when mods register a listener.
+     */
+    @FunctionalInterface
+    public interface RawKeyListener {
+        void onRawKey(ServerPlayerEntity player, KrepapiRawKeyC2SPayload payload);
+    }
+
     public static final KrepapiFabricHandshakeState HANDSHAKE = new KrepapiFabricHandshakeState();
 
     /**
@@ -49,6 +60,7 @@ public final class KrepapiFabricServerNetworking {
     private static final Map<UUID, Integer> HANDSHAKE_TICKS = new ConcurrentHashMap<>();
     private static final CopyOnWriteArrayList<ModConstraint> MOD_CONSTRAINTS = new CopyOnWriteArrayList<>();
     private static final CopyOnWriteArrayList<KeyActionListener> KEY_ACTION_LISTENERS = new CopyOnWriteArrayList<>();
+    private static final CopyOnWriteArrayList<RawKeyListener> RAW_KEY_LISTENERS = new CopyOnWriteArrayList<>();
 
     /** Handshake and version-gate options for the dedicated Fabric server. */
     public static final KrepapiFabricServerSettings settings = new KrepapiFabricServerSettings();
@@ -87,6 +99,14 @@ public final class KrepapiFabricServerNetworking {
 
     public static void unregisterKeyActionListener(KeyActionListener listener) {
         KEY_ACTION_LISTENERS.remove(listener);
+    }
+
+    public static void registerRawKeyListener(RawKeyListener listener) {
+        RAW_KEY_LISTENERS.add(Objects.requireNonNull(listener, "listener"));
+    }
+
+    public static void unregisterRawKeyListener(RawKeyListener listener) {
+        RAW_KEY_LISTENERS.remove(listener);
     }
 
     private record ModConstraint(String modId, KrepapiVersionPolicy.Constraint constraint) {
@@ -155,6 +175,17 @@ public final class KrepapiFabricServerNetworking {
             }
         });
 
+        ServerPlayNetworking.registerGlobalReceiver(KrepapiRawKeyC2SPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            for (RawKeyListener listener : RAW_KEY_LISTENERS) {
+                try {
+                    listener.onRawKey(player, payload);
+                } catch (Throwable t) {
+                    LOGGER.error("KrepAPI raw key listener failed", t);
+                }
+            }
+        });
+
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity player = handler.player;
             long nonce = server.getOverworld().getRandom().nextLong();
@@ -188,5 +219,16 @@ public final class KrepapiFabricServerNetworking {
         ArrayList<ProtocolMessages.BindingEntry> copy = new ArrayList<>(entries);
         copy.sort(Comparator.comparing(ProtocolMessages.BindingEntry::actionId));
         ServerPlayNetworking.send(player, new KrepapiBindingsS2CPayload(copy));
+    }
+
+    public static void sendRawCaptureConfig(ServerPlayerEntity player, ProtocolMessages.RawCaptureConfig config) {
+        ServerPlayNetworking.send(player, new KrepapiRawCaptureS2CPayload(config));
+    }
+
+    public static void sendInterceptKeys(ServerPlayerEntity player, ProtocolMessages.InterceptKeysSync sync) {
+        if (sync.entries().size() > ProtocolMessages.MAX_INTERCEPT_ENTRIES) {
+            throw new IllegalArgumentException("too many intercept entries: " + sync.entries().size());
+        }
+        ServerPlayNetworking.send(player, new KrepapiInterceptKeysS2CPayload(sync.entries()));
     }
 }
