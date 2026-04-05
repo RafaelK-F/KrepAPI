@@ -36,6 +36,12 @@ The server can send `s2c_raw_capture` (see [`ProtocolMessages.RawCaptureConfig`]
 
 Fabric server: [`KrepapiFabricServerNetworking.sendRawCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java). Paper: [`KrepapiPaperPlugin.sendRawCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/paper-plugin/src/main/java/net/shik/krepapi/paper/KrepapiPaperPlugin.java).
 
+## Server-driven mouse capture (protocol v2+)
+
+The server can send `s2c_mouse_capture` (see [`ProtocolMessages.MouseCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/ProtocolMessages.java)) so the client emits `c2s_mouse_action` for mouse buttons and/or scroll, optionally with normalized cursor coordinates on each event. Optional `consumeVanilla` suppresses vanilla handling for matching `Mouse` callbacks (`MouseMixin`). Events are sent under the same play / GUI gate as raw keys (`player != null` or `currentScreen != null`).
+
+Fabric server: [`KrepapiFabricServerNetworking.sendMouseCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java) (skips sending if the client did not advertise `SERVER_MOUSE_CAPTURE`). Paper: [`KrepapiPaperPlugin.sendMouseCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/paper-plugin/src/main/java/net/shik/krepapi/paper/KrepapiPaperPlugin.java).
+
 ## Intercept keys (protocol v2+)
 
 `s2c_intercept_keys` sets rules for Escape, F3, Tab, F1, and F5 (slot ids `0`–`4` in the protocol). When `blockVanilla` is true for a slot, the client blocks vanilla handling for that GLFW key (keyboard pipeline plus extra hooks for opening/closing the pause menu on Escape). Paper: `sendInterceptKeys`; Fabric: `sendInterceptKeys` on [`KrepapiFabricServerNetworking`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java).
@@ -46,7 +52,7 @@ On `s2c_hello`, the client automatically sends `c2s_client_info` with:
 
 * `KrepapiProtocolVersion.CURRENT`
 * **Build version** — the KrepAPI mod version string from `fabric.mod.json` / Gradle (use [SemVer](https://semver.org/) for releases, e.g. `1.1.0`, so server comparisons stay predictable)
-* Capabilities: `KEY_OVERRIDE | RAW_KEYS | SERVER_RAW_CAPTURE | INTERCEPT_KEYS`
+* Capabilities: `KEY_OVERRIDE | RAW_KEYS | SERVER_RAW_CAPTURE | INTERCEPT_KEYS | SERVER_MOUSE_CAPTURE`
 
 ## Fabric dedicated server
 

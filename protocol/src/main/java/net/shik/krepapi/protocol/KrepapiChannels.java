@@ -13,6 +13,8 @@ public final class KrepapiChannels {
     public static final String S2C_INTERCEPT_KEYS = NAMESPACE + ":s2c_intercept_keys";
     public static final String C2S_KEY_ACTION = NAMESPACE + ":c2s_key_action";
     public static final String C2S_RAW_KEY = NAMESPACE + ":c2s_raw_key";
+    public static final String S2C_MOUSE_CAPTURE = NAMESPACE + ":s2c_mouse_capture";
+    public static final String C2S_MOUSE_ACTION = NAMESPACE + ":c2s_mouse_action";
 
     private KrepapiChannels() {
     }

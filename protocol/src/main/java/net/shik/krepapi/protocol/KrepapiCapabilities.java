@@ -12,6 +12,8 @@ public final class KrepapiCapabilities {
     public static final int SERVER_RAW_CAPTURE = 1 << 2;
     /** Client honors {@code s2c_intercept_keys} (hardcoded-key mixins). */
     public static final int INTERCEPT_KEYS = 1 << 3;
+    /** Client honors {@code s2c_mouse_capture} and sends {@code c2s_mouse_action}. */
+    public static final int SERVER_MOUSE_CAPTURE = 1 << 4;
 
     private KrepapiCapabilities() {
     }

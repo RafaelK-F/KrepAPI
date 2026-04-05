@@ -19,6 +19,7 @@ import org.jetbrains.annotations.NotNull;
 
 import net.kyori.adventure.text.Component;
 import net.shik.krepapi.protocol.KrepapiBuildVersion;
+import net.shik.krepapi.protocol.KrepapiCapabilities;
 import net.shik.krepapi.protocol.KrepapiChannels;
 import net.shik.krepapi.protocol.KrepapiKickReasons;
 import net.shik.krepapi.protocol.KrepapiProtocolVersion;
@@ -28,6 +29,8 @@ import net.shik.krepapi.protocol.ProtocolMessages;
 public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, PluginMessageListener {
 
     private final Map<UUID, PendingHandshake> pending = new ConcurrentHashMap<>();
+    /** Capability bitfield from {@code c2s_client_info} after a successful handshake. */
+    private final Map<UUID, Integer> clientCapabilities = new ConcurrentHashMap<>();
     private final Map<Plugin, CopyOnWriteArrayList<KrepapiVersionPolicy.Constraint>> constraintsByPlugin = new ConcurrentHashMap<>();
 
     @Override
@@ -38,6 +41,7 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         getServer().getMessenger().registerIncomingPluginChannel(this, KrepapiChannels.C2S_CLIENT_INFO, this);
         getServer().getMessenger().registerIncomingPluginChannel(this, KrepapiChannels.C2S_KEY_ACTION, this);
         getServer().getMessenger().registerIncomingPluginChannel(this, KrepapiChannels.C2S_RAW_KEY, this);
+        getServer().getMessenger().registerIncomingPluginChannel(this, KrepapiChannels.C2S_MOUSE_ACTION, this);
         getLogger().info("KrepAPI Paper reference enabled. Channels: " + KrepapiChannels.S2C_HELLO + ", ...");
     }
 
@@ -46,8 +50,10 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         getServer().getMessenger().unregisterIncomingPluginChannel(this, KrepapiChannels.C2S_CLIENT_INFO);
         getServer().getMessenger().unregisterIncomingPluginChannel(this, KrepapiChannels.C2S_KEY_ACTION);
         getServer().getMessenger().unregisterIncomingPluginChannel(this, KrepapiChannels.C2S_RAW_KEY);
+        getServer().getMessenger().unregisterIncomingPluginChannel(this, KrepapiChannels.C2S_MOUSE_ACTION);
         unregisterOutgoing();
         constraintsByPlugin.clear();
+        clientCapabilities.clear();
     }
 
     /**
@@ -72,6 +78,7 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         getServer().getMessenger().registerOutgoingPluginChannel(this, KrepapiChannels.S2C_BINDINGS);
         getServer().getMessenger().registerOutgoingPluginChannel(this, KrepapiChannels.S2C_RAW_CAPTURE);
         getServer().getMessenger().registerOutgoingPluginChannel(this, KrepapiChannels.S2C_INTERCEPT_KEYS);
+        getServer().getMessenger().registerOutgoingPluginChannel(this, KrepapiChannels.S2C_MOUSE_CAPTURE);
     }
 
     private void unregisterOutgoing() {
@@ -79,6 +86,7 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         getServer().getMessenger().unregisterOutgoingPluginChannel(this, KrepapiChannels.S2C_BINDINGS);
         getServer().getMessenger().unregisterOutgoingPluginChannel(this, KrepapiChannels.S2C_RAW_CAPTURE);
         getServer().getMessenger().unregisterOutgoingPluginChannel(this, KrepapiChannels.S2C_INTERCEPT_KEYS);
+        getServer().getMessenger().unregisterOutgoingPluginChannel(this, KrepapiChannels.S2C_MOUSE_CAPTURE);
     }
 
     /**
@@ -101,6 +109,28 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         }
         byte[] payload = ProtocolMessages.encodeInterceptKeysSync(sync);
         player.sendPluginMessage(this, KrepapiChannels.S2C_INTERCEPT_KEYS, payload);
+    }
+
+    /**
+     * Sends {@link KrepapiChannels#S2C_MOUSE_CAPTURE} if the client advertised {@link KrepapiCapabilities#SERVER_MOUSE_CAPTURE}.
+     */
+    public void sendMouseCaptureConfig(@NotNull Player player, @NotNull ProtocolMessages.MouseCaptureConfig config) {
+        if (!player.isOnline()) {
+            return;
+        }
+        int caps = clientCapabilities.getOrDefault(player.getUniqueId(), 0);
+        if ((caps & KrepapiCapabilities.SERVER_MOUSE_CAPTURE) == 0) {
+            return;
+        }
+        byte[] payload = ProtocolMessages.encodeMouseCaptureConfig(config);
+        player.sendPluginMessage(this, KrepapiChannels.S2C_MOUSE_CAPTURE, payload);
+    }
+
+    /**
+     * Capability bitfield from the player's last successful {@code c2s_client_info}, or {@code 0} if unknown.
+     */
+    public int getClientCapabilities(@NotNull Player player) {
+        return clientCapabilities.getOrDefault(player.getUniqueId(), 0);
     }
 
     @EventHandler
@@ -175,7 +205,9 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        pending.remove(event.getPlayer().getUniqueId());
+        UUID id = event.getPlayer().getUniqueId();
+        pending.remove(id);
+        clientCapabilities.remove(id);
     }
 
     @Override
@@ -186,6 +218,8 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
             onKeyAction(player, message);
         } else if (KrepapiChannels.C2S_RAW_KEY.equals(channel)) {
             onRawKey(player, message);
+        } else if (KrepapiChannels.C2S_MOUSE_ACTION.equals(channel)) {
+            onMouseAction(player, message);
         }
     }
 
@@ -221,7 +255,9 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
                 kick = KrepapiKickReasons.modBuildVersionTooOld(h.effectiveMin);
             }
             player.kick(Component.text(kick));
+            return;
         }
+        clientCapabilities.put(player.getUniqueId(), info.capabilities());
     }
 
     private void onKeyAction(Player player, byte[] message) {
@@ -252,6 +288,28 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
                     + " scancode=" + e.scancode() + " action=" + actionName + " seq=" + e.sequence());
         } catch (RuntimeException ex) {
             getLogger().warning("Bad raw_key from " + player.getName());
+        }
+    }
+
+    private void onMouseAction(Player player, byte[] message) {
+        try {
+            ProtocolMessages.MouseActionEvent e = ProtocolMessages.decodeMouseAction(message);
+            if (e.kind() == ProtocolMessages.MOUSE_ACTION_KIND_BUTTON) {
+                String actionName = switch (e.glfwAction()) {
+                    case 0 -> "release";
+                    case 1 -> "press";
+                    default -> "unknown(" + e.glfwAction() + ")";
+                };
+                getLogger().info("[KrepAPI] " + player.getName() + " mouse_action button=" + e.button()
+                        + " action=" + actionName + " mods=" + e.modifiers() + " seq=" + e.sequence()
+                        + " extras=" + e.extras() + " cursor=(" + e.cursorX() + "," + e.cursorY() + ")");
+            } else if (e.kind() == ProtocolMessages.MOUSE_ACTION_KIND_SCROLL) {
+                getLogger().info("[KrepAPI] " + player.getName() + " mouse_action scroll=("
+                        + e.scrollDeltaX() + "," + e.scrollDeltaY() + ") seq=" + e.sequence()
+                        + " extras=" + e.extras() + " cursor=(" + e.cursorX() + "," + e.cursorY() + ")");
+            }
+        } catch (RuntimeException ex) {
+            getLogger().warning("Bad mouse_action from " + player.getName());
         }
     }
 

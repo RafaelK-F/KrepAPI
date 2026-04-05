@@ -29,6 +29,31 @@ public final class ProtocolMessages {
 
     private static final long MAX_INTERCEPT_SYNC_ENCODED_BYTES = 4096L;
 
+    private static final long MAX_MOUSE_CAPTURE_ENCODED_BYTES = 256L;
+
+    private static final long MAX_MOUSE_ACTION_ENCODED_BYTES = 64L;
+
+    /** Bit for {@link MouseCaptureConfig#flags()}: forward mouse button events. */
+    public static final byte MOUSE_CAPTURE_BUTTONS = 1;
+    /** Bit for {@link MouseCaptureConfig#flags()}: forward scroll events. */
+    public static final byte MOUSE_CAPTURE_SCROLL = 2;
+    /**
+     * Bit for {@link MouseCaptureConfig#flags()}: client may set {@link MouseActionEvent#extras()}
+     * {@link #MOUSE_ACTION_EXTRA_HAS_CURSOR} on {@code c2s_mouse_action}.
+     */
+    public static final byte MOUSE_CAPTURE_CURSOR_ON_EVENTS = 4;
+
+    /** {@link MouseActionEvent#kind()} — mouse button press or release. */
+    public static final byte MOUSE_ACTION_KIND_BUTTON = 0;
+    /** {@link MouseActionEvent#kind()} — mouse wheel / trackpad scroll. */
+    public static final byte MOUSE_ACTION_KIND_SCROLL = 1;
+
+    /**
+     * If set in {@link MouseActionEvent#extras()}, {@code cursorX} and {@code cursorY} are written after {@code extras}
+     * (normalized 0–1 in window space).
+     */
+    public static final byte MOUSE_ACTION_EXTRA_HAS_CURSOR = 1;
+
     /** {@link RawCaptureConfig#mode()} — capture off; whitelist ignored. */
     public static final byte RAW_CAPTURE_MODE_OFF = 0;
     /** Every key event is eligible (subject to client GUI rules). */
@@ -88,6 +113,31 @@ public final class ProtocolMessages {
 
     /** Non-empty list activates intercept rules; empty list clears all intercepts on the client. */
     public record InterceptKeysSync(List<InterceptEntry> entries) {
+    }
+
+    /**
+     * Server-driven mouse capture (S2C). When {@code enabled} is false, {@code flags} should be {@code 0}.
+     * Combine {@link #MOUSE_CAPTURE_BUTTONS}, {@link #MOUSE_CAPTURE_SCROLL}, {@link #MOUSE_CAPTURE_CURSOR_ON_EVENTS}.
+     */
+    public record MouseCaptureConfig(boolean enabled, byte flags, boolean consumeVanilla) {
+    }
+
+    /**
+     * Mouse input (C2S). Use {@link #MOUSE_ACTION_KIND_BUTTON} with GLFW button / action / modifiers, or
+     * {@link #MOUSE_ACTION_KIND_SCROLL} with scroll deltas. Unused fields are zero.
+     */
+    public record MouseActionEvent(
+            byte kind,
+            int sequence,
+            byte button,
+            byte glfwAction,
+            int modifiers,
+            float scrollDeltaX,
+            float scrollDeltaY,
+            byte extras,
+            float cursorX,
+            float cursorY
+    ) {
     }
 
     private ProtocolMessages() {
@@ -330,5 +380,95 @@ public final class ProtocolMessages {
             list.add(new InterceptEntry(slot, block));
         }
         return new InterceptKeysSync(List.copyOf(list));
+    }
+
+    public static byte[] encodeMouseCaptureConfig(MouseCaptureConfig msg) {
+        long need = 1L + 1L + 1L;
+        if (need > MAX_MOUSE_CAPTURE_ENCODED_BYTES) {
+            throw new IllegalArgumentException("mouse_capture payload too large");
+        }
+        ByteBuffer buf = allocateForEncode(need, "mouse_capture");
+        ProtocolBuf.writeByte(buf, msg.enabled() ? 1 : 0);
+        ProtocolBuf.writeByte(buf, msg.flags() & 0xFF);
+        ProtocolBuf.writeByte(buf, msg.consumeVanilla() ? 1 : 0);
+        buf.flip();
+        byte[] out = new byte[buf.remaining()];
+        buf.get(out);
+        return out;
+    }
+
+    public static MouseCaptureConfig decodeMouseCaptureConfig(byte[] data) {
+        ByteBuffer buf = ByteBuffer.wrap(data);
+        boolean enabled = ProtocolBuf.readUnsignedByte(buf) != 0;
+        byte flags = (byte) ProtocolBuf.readUnsignedByte(buf);
+        boolean consumeVanilla = ProtocolBuf.readUnsignedByte(buf) != 0;
+        return new MouseCaptureConfig(enabled, flags, consumeVanilla);
+    }
+
+    public static byte[] encodeMouseAction(MouseActionEvent msg) {
+        long need = 1L + (long) ProtocolBuf.varIntEncodedSize(msg.sequence()) + 1L;
+        if (msg.kind() == MOUSE_ACTION_KIND_BUTTON) {
+            need += 1L + 1L + (long) ProtocolBuf.varIntEncodedSize(msg.modifiers());
+        } else if (msg.kind() == MOUSE_ACTION_KIND_SCROLL) {
+            need += 4L + 4L;
+        } else {
+            throw new IllegalArgumentException("unknown mouse action kind: " + msg.kind());
+        }
+        need += 1L;
+        if ((msg.extras() & MOUSE_ACTION_EXTRA_HAS_CURSOR) != 0) {
+            need += 4L + 4L;
+        }
+        if (need > MAX_MOUSE_ACTION_ENCODED_BYTES) {
+            throw new IllegalArgumentException("mouse_action payload too large");
+        }
+        ByteBuffer buf = allocateForEncode(need, "mouse_action");
+        ProtocolBuf.writeByte(buf, msg.kind());
+        ProtocolBuf.writeVarInt(buf, msg.sequence());
+        if (msg.kind() == MOUSE_ACTION_KIND_BUTTON) {
+            ProtocolBuf.writeByte(buf, msg.button() & 0xFF);
+            ProtocolBuf.writeByte(buf, msg.glfwAction() & 0xFF);
+            ProtocolBuf.writeVarInt(buf, msg.modifiers());
+        } else {
+            ProtocolBuf.writeFloat(buf, msg.scrollDeltaX());
+            ProtocolBuf.writeFloat(buf, msg.scrollDeltaY());
+        }
+        ProtocolBuf.writeByte(buf, msg.extras() & 0xFF);
+        if ((msg.extras() & MOUSE_ACTION_EXTRA_HAS_CURSOR) != 0) {
+            ProtocolBuf.writeFloat(buf, msg.cursorX());
+            ProtocolBuf.writeFloat(buf, msg.cursorY());
+        }
+        buf.flip();
+        byte[] out = new byte[buf.remaining()];
+        buf.get(out);
+        return out;
+    }
+
+    public static MouseActionEvent decodeMouseAction(byte[] data) {
+        ByteBuffer buf = ByteBuffer.wrap(data);
+        byte kind = (byte) ProtocolBuf.readUnsignedByte(buf);
+        int seq = ProtocolBuf.readVarInt(buf);
+        byte button = 0;
+        byte glfwAction = 0;
+        int modifiers = 0;
+        float sx = 0f;
+        float sy = 0f;
+        if (kind == MOUSE_ACTION_KIND_BUTTON) {
+            button = (byte) ProtocolBuf.readUnsignedByte(buf);
+            glfwAction = (byte) ProtocolBuf.readUnsignedByte(buf);
+            modifiers = ProtocolBuf.readVarInt(buf);
+        } else if (kind == MOUSE_ACTION_KIND_SCROLL) {
+            sx = ProtocolBuf.readFloat(buf);
+            sy = ProtocolBuf.readFloat(buf);
+        } else {
+            throw new IllegalArgumentException("unknown mouse action kind: " + kind);
+        }
+        byte extras = (byte) ProtocolBuf.readUnsignedByte(buf);
+        float cx = 0f;
+        float cy = 0f;
+        if ((extras & MOUSE_ACTION_EXTRA_HAS_CURSOR) != 0) {
+            cx = ProtocolBuf.readFloat(buf);
+            cy = ProtocolBuf.readFloat(buf);
+        }
+        return new MouseActionEvent(kind, seq, button, glfwAction, modifiers, sx, sy, extras, cx, cy);
     }
 }

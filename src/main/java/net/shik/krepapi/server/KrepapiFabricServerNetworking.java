@@ -22,9 +22,12 @@ import net.shik.krepapi.net.KrepapiClientInfoC2SPayload;
 import net.shik.krepapi.net.KrepapiHelloS2CPayload;
 import net.shik.krepapi.net.KrepapiInterceptKeysS2CPayload;
 import net.shik.krepapi.net.KrepapiKeyActionC2SPayload;
+import net.shik.krepapi.net.KrepapiMouseActionC2SPayload;
+import net.shik.krepapi.net.KrepapiMouseCaptureS2CPayload;
 import net.shik.krepapi.net.KrepapiRawCaptureS2CPayload;
 import net.shik.krepapi.net.KrepapiRawKeyC2SPayload;
 import net.shik.krepapi.protocol.KrepapiBuildVersion;
+import net.shik.krepapi.protocol.KrepapiCapabilities;
 import net.shik.krepapi.protocol.KrepapiKickReasons;
 import net.shik.krepapi.protocol.KrepapiProtocolVersion;
 import net.shik.krepapi.protocol.KrepapiVersionPolicy;
@@ -51,6 +54,14 @@ public final class KrepapiFabricServerNetworking {
         void onRawKey(ServerPlayerEntity player, KrepapiRawKeyC2SPayload payload);
     }
 
+    /**
+     * Receives {@link KrepapiMouseActionC2SPayload} when mods register a listener.
+     */
+    @FunctionalInterface
+    public interface MouseActionListener {
+        void onMouseAction(ServerPlayerEntity player, KrepapiMouseActionC2SPayload payload);
+    }
+
     public static final KrepapiFabricHandshakeState HANDSHAKE = new KrepapiFabricHandshakeState();
 
     /**
@@ -61,6 +72,7 @@ public final class KrepapiFabricServerNetworking {
     private static final CopyOnWriteArrayList<ModConstraint> MOD_CONSTRAINTS = new CopyOnWriteArrayList<>();
     private static final CopyOnWriteArrayList<KeyActionListener> KEY_ACTION_LISTENERS = new CopyOnWriteArrayList<>();
     private static final CopyOnWriteArrayList<RawKeyListener> RAW_KEY_LISTENERS = new CopyOnWriteArrayList<>();
+    private static final CopyOnWriteArrayList<MouseActionListener> MOUSE_ACTION_LISTENERS = new CopyOnWriteArrayList<>();
 
     /** Handshake and version-gate options for the dedicated Fabric server. */
     public static final KrepapiFabricServerSettings settings = new KrepapiFabricServerSettings();
@@ -107,6 +119,21 @@ public final class KrepapiFabricServerNetworking {
 
     public static void unregisterRawKeyListener(RawKeyListener listener) {
         RAW_KEY_LISTENERS.remove(listener);
+    }
+
+    public static void registerMouseActionListener(MouseActionListener listener) {
+        MOUSE_ACTION_LISTENERS.add(Objects.requireNonNull(listener, "listener"));
+    }
+
+    public static void unregisterMouseActionListener(MouseActionListener listener) {
+        MOUSE_ACTION_LISTENERS.remove(listener);
+    }
+
+    /**
+     * Capability bitfield from the player's last successful {@code c2s_client_info}, or {@code 0} if unknown.
+     */
+    public static int getClientCapabilities(ServerPlayerEntity player) {
+        return HANDSHAKE.getClientCapabilities(player.getUuid());
     }
 
     private record ModConstraint(String modId, KrepapiVersionPolicy.Constraint constraint) {
@@ -161,7 +188,9 @@ public final class KrepapiFabricServerNetworking {
                     kick = KrepapiKickReasons.modBuildVersionTooOld(entry.effectiveMin);
                 }
                 player.networkHandler.disconnect(Text.literal(kick));
+                return;
             }
+            HANDSHAKE.setClientCapabilities(player.getUuid(), payload.capabilities());
         });
 
         ServerPlayNetworking.registerGlobalReceiver(KrepapiKeyActionC2SPayload.ID, (payload, context) -> {
@@ -182,6 +211,17 @@ public final class KrepapiFabricServerNetworking {
                     listener.onRawKey(player, payload);
                 } catch (Throwable t) {
                     LOGGER.error("KrepAPI raw key listener failed", t);
+                }
+            }
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(KrepapiMouseActionC2SPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            for (MouseActionListener listener : MOUSE_ACTION_LISTENERS) {
+                try {
+                    listener.onMouseAction(player, payload);
+                } catch (Throwable t) {
+                    LOGGER.error("KrepAPI mouse action listener failed", t);
                 }
             }
         });
@@ -230,5 +270,15 @@ public final class KrepapiFabricServerNetworking {
             throw new IllegalArgumentException("too many intercept entries: " + sync.entries().size());
         }
         ServerPlayNetworking.send(player, new KrepapiInterceptKeysS2CPayload(sync.entries()));
+    }
+
+    /**
+     * Sends {@code s2c_mouse_capture} only if the client advertised {@link KrepapiCapabilities#SERVER_MOUSE_CAPTURE}.
+     */
+    public static void sendMouseCaptureConfig(ServerPlayerEntity player, ProtocolMessages.MouseCaptureConfig config) {
+        if ((HANDSHAKE.getClientCapabilities(player.getUuid()) & KrepapiCapabilities.SERVER_MOUSE_CAPTURE) == 0) {
+            return;
+        }
+        ServerPlayNetworking.send(player, new KrepapiMouseCaptureS2CPayload(config));
     }
 }

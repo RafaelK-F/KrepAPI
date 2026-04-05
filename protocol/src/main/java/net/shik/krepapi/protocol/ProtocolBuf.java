@@ -146,4 +146,13 @@ public final class ProtocolBuf {
     public static long readLong(ByteBuffer buf) {
         return buf.getLong();
     }
+
+    /** IEEE 754 binary32, big-endian (matches typical Minecraft netcodec float). */
+    public static void writeFloat(ByteBuffer buf, float v) {
+        buf.putFloat(v);
+    }
+
+    public static float readFloat(ByteBuffer buf) {
+        return buf.getFloat();
+    }
 }

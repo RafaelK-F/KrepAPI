@@ -26,8 +26,12 @@ Identifiers match vanilla custom payload ids (`namespace:path`):
 | `krepapi:s2c_intercept_keys` | S → C | Block vanilla handling for well-known keys (protocol v2+). |
 | `krepapi:c2s_key_action` | C → S | Key press/release for a binding `actionId`. |
 | `krepapi:c2s_raw_key` | C → S | Raw GLFW keyboard event (protocol v2+). |
+| `krepapi:s2c_mouse_capture` | S → C | Enable/disable server-driven mouse capture (protocol v2+; requires `SERVER_MOUSE_CAPTURE` capability). |
+| `krepapi:c2s_mouse_action` | C → S | Mouse button / scroll event (protocol v2+). |
 
 Constants live in [`KrepapiChannels`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiChannels.java).
+
+Reference implementations **do not send** `s2c_mouse_capture` unless the client advertised [`KrepapiCapabilities.SERVER_MOUSE_CAPTURE`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiCapabilities.java) in `c2s_client_info`, so older clients without mouse support are not delivered an unregistered payload type.
 
 ## Limits (decode / encode)
 
@@ -42,6 +46,8 @@ Constants live in [`KrepapiChannels`](https://github.com/RafaelK-F/KrepAPI/blob/
 | `MAX_CATEGORY_UTF8_BYTES` | 256 | binding `category` |
 | `MAX_RAW_CAPTURE_KEYS` | 256 | GLFW keys in `s2c_raw_capture` whitelist |
 | `MAX_INTERCEPT_ENTRIES` | 32 | rows in `s2c_intercept_keys` |
+
+Mouse capture / action payloads use a small internal encoded-size cap in `ProtocolMessages` (same style as raw capture). Floats use IEEE 754 binary32, big-endian.
 
 Encoded `s2c_bindings` is rejected if the computed size exceeds a large internal cap (50 MiB) to bound allocations. Fabric `PacketCodec` paths use the same string maxima.
 
@@ -113,6 +119,58 @@ When `enabled` is false or `mode` is `0`, the client disables capture and ignore
 
 Vanilla blocking for slots `1`–`4` is applied in the raw keyboard pipeline (`KeyboardMixin` / `KrepapiKeyPipeline`). Escape additionally uses mixins on `MinecraftClient.openGameMenu` and `GameMenuScreen.keyPressed` so the pause menu does not open or close from vanilla handling while intercept is active.
 
+## `s2c_mouse_capture` (protocol v2+)
+
+| Field | Type |
+| --- | --- |
+| enabled | boolean (1 byte) |
+| flags | byte (bitmask, see below) |
+| consumeVanilla | boolean (1 byte) |
+
+**`flags`** (combine with bitwise OR):
+
+| Bit | Constant | Meaning |
+| --- | --- | --- |
+| `0x01` | `MOUSE_CAPTURE_BUTTONS` | Forward mouse button press/release. |
+| `0x02` | `MOUSE_CAPTURE_SCROLL` | Forward scroll events. |
+| `0x04` | `MOUSE_CAPTURE_CURSOR_ON_EVENTS` | Include normalized window cursor (0–1) on each forwarded event (`extras` on `c2s_mouse_action`). |
+
+When `enabled` is false, the client disables capture. The Fabric client forwards events only while in play with a network handler and (`player != null` or `currentScreen != null`), matching the `MouseMixin` gate.
+
+If `consumeVanilla` is true for a matching event, vanilla handling for that mouse callback is skipped (`MouseMixin`). Suppressing scroll for in-world camera or vehicle control can feel wrong; treat `consumeVanilla` as best suited to focused custom UIs.
+
+## `c2s_mouse_action` (protocol v2+)
+
+| Field | Type |
+| --- | --- |
+| kind | byte (`0` button, `1` scroll) |
+| sequence | varint (monotonic per client for mouse-action packets) |
+
+If `kind == 0` (button):
+
+| Field | Type |
+| --- | --- |
+| button | byte (GLFW mouse button, e.g. `0` left, `1` right, `2` middle) |
+| glfwAction | byte (`0` release, `1` press) |
+| modifiers | varint (GLFW modifier bitmask) |
+
+If `kind == 1` (scroll):
+
+| Field | Type |
+| --- | --- |
+| deltaX | float |
+| deltaY | float |
+
+Then:
+
+| Field | Type |
+| --- | --- |
+| extras | byte |
+
+If `extras & MOUSE_ACTION_EXTRA_HAS_CURSOR` (`0x01`): two floats follow: `cursorX`, `cursorY` in **normalized window space** (scaled client size: `mouseX / scaledWidth`, `mouseY / scaledHeight`, clamped to \[0, 1\]).
+
+Unknown `kind` values are rejected on decode.
+
 ## Capabilities
 
 | Bit | Name | Meaning |
@@ -121,6 +179,7 @@ Vanilla blocking for slots `1`–`4` is applied in the raw keyboard pipeline (`K
 | `1 << 1` | `RAW_KEYS` | Raw key pipeline available (`KrepApi` listeners). |
 | `1 << 2` | `SERVER_RAW_CAPTURE` | Client honors `s2c_raw_capture` and sends `c2s_raw_key`. |
 | `1 << 3` | `INTERCEPT_KEYS` | Client honors `s2c_intercept_keys`. |
+| `1 << 4` | `SERVER_MOUSE_CAPTURE` | Client honors `s2c_mouse_capture` and sends `c2s_mouse_action`. |
 
 ## Kick reasons (suggested text)
 
@@ -133,3 +192,5 @@ Paper sends the same bytes via `Player.sendPluginMessage(plugin, channel, byte[]
 **Key actions (`c2s_key_action`):** The reference **Paper** plugin logs incoming key-action packets for debugging. The **Fabric** server module in this repository does not implement gameplay for key actions by default; mods can handle them by registering [`KrepapiFabricServerNetworking.registerKeyActionListener`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java). If no listener is registered, packets are accepted and ignored.
 
 **Raw keys (`c2s_raw_key`):** Paper logs them similarly. Fabric mods can use [`KrepapiFabricServerNetworking.registerRawKeyListener`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java). Rate-limit aggressively on the server; treat payloads as untrusted and privacy-sensitive.
+
+**Mouse (`c2s_mouse_action`):** Paper logs them similarly. Fabric mods can use [`KrepapiFabricServerNetworking.registerMouseActionListener`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java). Use [`KrepapiFabricServerNetworking.sendMouseCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java) or Paper [`KrepapiPaperPlugin.sendMouseCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/paper-plugin/src/main/java/net/shik/krepapi/paper/KrepapiPaperPlugin.java); both no-op unless the client reported `SERVER_MOUSE_CAPTURE`. After a successful handshake, capabilities are available as [`KrepapiFabricServerNetworking.getClientCapabilities`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java) (Fabric) or [`KrepapiPaperPlugin.getClientCapabilities`](https://github.com/RafaelK-F/KrepAPI/blob/main/paper-plugin/src/main/java/net/shik/krepapi/paper/KrepapiPaperPlugin.java) (Paper). Rate-limit and treat as untrusted / privacy-sensitive (cursor position).

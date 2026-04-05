@@ -8,6 +8,7 @@ import net.shik.krepapi.net.KrepapiBindingsS2CPayload;
 import net.shik.krepapi.net.KrepapiClientInfoC2SPayload;
 import net.shik.krepapi.net.KrepapiHelloS2CPayload;
 import net.shik.krepapi.net.KrepapiInterceptKeysS2CPayload;
+import net.shik.krepapi.net.KrepapiMouseCaptureS2CPayload;
 import net.shik.krepapi.net.KrepapiRawCaptureS2CPayload;
 import net.shik.krepapi.protocol.KrepapiCapabilities;
 import net.shik.krepapi.protocol.KrepapiProtocolVersion;
@@ -26,7 +27,8 @@ public final class KrepapiClientNetworking {
             int caps = KrepapiCapabilities.KEY_OVERRIDE
                     | KrepapiCapabilities.RAW_KEYS
                     | KrepapiCapabilities.SERVER_RAW_CAPTURE
-                    | KrepapiCapabilities.INTERCEPT_KEYS;
+                    | KrepapiCapabilities.INTERCEPT_KEYS
+                    | KrepapiCapabilities.SERVER_MOUSE_CAPTURE;
             ClientPlayNetworking.send(new KrepapiClientInfoC2SPayload(
                     KrepapiProtocolVersion.CURRENT,
                     modVersion,
@@ -50,9 +52,15 @@ public final class KrepapiClientNetworking {
             client.execute(() -> InterceptKeyState.apply(new ProtocolMessages.InterceptKeysSync(payload.entries())));
         });
 
+        ClientPlayNetworking.registerGlobalReceiver(KrepapiMouseCaptureS2CPayload.ID, (payload, context) -> {
+            MinecraftClient client = context.client();
+            client.execute(() -> MouseCaptureState.apply(payload.config()));
+        });
+
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             client.execute(() -> ServerBindingManager.clear(client));
             RawCaptureState.clear();
+            MouseCaptureState.clear();
             InterceptKeyState.clear();
         });
     }

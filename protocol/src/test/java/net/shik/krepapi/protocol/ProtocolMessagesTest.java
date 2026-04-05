@@ -165,4 +165,87 @@ class ProtocolMessagesTest {
                 )
         );
     }
+
+    @Test
+    void mouseCaptureConfigRoundTrip() {
+        var msg = new ProtocolMessages.MouseCaptureConfig(
+                true,
+                (byte) (ProtocolMessages.MOUSE_CAPTURE_BUTTONS | ProtocolMessages.MOUSE_CAPTURE_SCROLL),
+                true
+        );
+        byte[] enc = ProtocolMessages.encodeMouseCaptureConfig(msg);
+        ProtocolMessages.MouseCaptureConfig dec = ProtocolMessages.decodeMouseCaptureConfig(enc);
+        assertEquals(true, dec.enabled());
+        assertEquals(
+                ProtocolMessages.MOUSE_CAPTURE_BUTTONS | ProtocolMessages.MOUSE_CAPTURE_SCROLL,
+                dec.flags()
+        );
+        assertEquals(true, dec.consumeVanilla());
+    }
+
+    @Test
+    void mouseActionButtonRoundTrip() {
+        var ev = new ProtocolMessages.MouseActionEvent(
+                ProtocolMessages.MOUSE_ACTION_KIND_BUTTON,
+                7,
+                (byte) 0,
+                (byte) 1,
+                2,
+                0f,
+                0f,
+                (byte) 0,
+                0f,
+                0f
+        );
+        byte[] enc = ProtocolMessages.encodeMouseAction(ev);
+        ProtocolMessages.MouseActionEvent dec = ProtocolMessages.decodeMouseAction(enc);
+        assertEquals(ProtocolMessages.MOUSE_ACTION_KIND_BUTTON, dec.kind());
+        assertEquals(7, dec.sequence());
+        assertEquals((byte) 0, dec.button());
+        assertEquals((byte) 1, dec.glfwAction());
+        assertEquals(2, dec.modifiers());
+    }
+
+    @Test
+    void mouseActionScrollWithCursorRoundTrip() {
+        var ev = new ProtocolMessages.MouseActionEvent(
+                ProtocolMessages.MOUSE_ACTION_KIND_SCROLL,
+                42,
+                (byte) 0,
+                (byte) 0,
+                0,
+                1.5f,
+                -0.25f,
+                ProtocolMessages.MOUSE_ACTION_EXTRA_HAS_CURSOR,
+                0.25f,
+                0.75f
+        );
+        byte[] enc = ProtocolMessages.encodeMouseAction(ev);
+        ProtocolMessages.MouseActionEvent dec = ProtocolMessages.decodeMouseAction(enc);
+        assertEquals(ProtocolMessages.MOUSE_ACTION_KIND_SCROLL, dec.kind());
+        assertEquals(42, dec.sequence());
+        assertEquals(1.5f, dec.scrollDeltaX(), 0.0001f);
+        assertEquals(-0.25f, dec.scrollDeltaY(), 0.0001f);
+        assertEquals(0.25f, dec.cursorX(), 0.0001f);
+        assertEquals(0.75f, dec.cursorY(), 0.0001f);
+    }
+
+    @Test
+    void decodeMouseActionRejectsUnknownKind() {
+        ByteBuffer buf = ByteBuffer.allocate(8);
+        ProtocolBuf.writeByte(buf, 99);
+        ProtocolBuf.writeVarInt(buf, 1);
+        buf.flip();
+        byte[] data = new byte[buf.remaining()];
+        buf.get(data);
+        assertThrows(IllegalArgumentException.class, () -> ProtocolMessages.decodeMouseAction(data));
+    }
+
+    @Test
+    void protocolBufFloatRoundTrip() {
+        ByteBuffer buf = ByteBuffer.allocate(4);
+        ProtocolBuf.writeFloat(buf, 3.14159f);
+        buf.flip();
+        assertEquals(3.14159f, ProtocolBuf.readFloat(buf), 0.0001f);
+    }
 }

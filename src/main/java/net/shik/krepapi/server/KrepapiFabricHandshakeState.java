@@ -38,6 +38,21 @@ public final class KrepapiFabricHandshakeState {
         entries.remove(playerId);
     }
 
+    /**
+     * Stores {@link net.shik.krepapi.protocol.ProtocolMessages.ClientInfo#capabilities()} after a successful handshake.
+     */
+    public void setClientCapabilities(UUID playerId, int capabilities) {
+        Entry e = entries.get(playerId);
+        if (e != null) {
+            e.clientCapabilities = capabilities;
+        }
+    }
+
+    public int getClientCapabilities(UUID playerId) {
+        Entry e = entries.get(playerId);
+        return e == null ? 0 : e.clientCapabilities;
+    }
+
     public static final class Entry {
         public final long nonce;
         public final String effectiveMin;
@@ -45,6 +60,8 @@ public final class KrepapiFabricHandshakeState {
         public final String configMin;
         public final List<KrepapiVersionPolicy.Constraint> constraintsSnapshot;
         public volatile boolean answered;
+        /** Bitfield from {@code c2s_client_info}; {@code 0} until handshake completes successfully. */
+        public volatile int clientCapabilities;
 
         Entry(
                 long nonce,
