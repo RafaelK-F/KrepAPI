@@ -1,0 +1,85 @@
+plugins {
+    id 'net.fabricmc.fabric-loom-remap' version "${loom_version_121}"
+    id 'maven-publish'
+}
+
+base {
+    archivesName = "${rootProject.archives_base_name}-mc1.21"
+}
+
+loom {
+    splitEnvironmentSourceSets()
+
+    mods {
+        "krepapi" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+fabricApi {
+    configureDataGeneration {
+        client = true
+    }
+}
+
+repositories {
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version_121}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${loader_version_121}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version_121}"
+
+    implementation project(':protocol')
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "minecraft_version", project.findProperty('minecraft_version_121') ?: ''
+    inputs.property "minecraft_version_range", project.findProperty('minecraft_version_range_121') ?: ''
+    inputs.property "loader_version", project.findProperty('loader_version_121') ?: ''
+    filteringCharset "UTF-8"
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version,
+                "minecraft_version": project.findProperty('minecraft_version_121') ?: '',
+                "minecraft_version_range": project.findProperty('minecraft_version_range_121') ?: '',
+                "loader_version": project.findProperty('loader_version_121') ?: ''
+    }
+}
+
+def targetJavaVersion = 21
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        it.options.release.set(targetJavaVersion)
+    }
+}
+
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+    withSourcesJar()
+}
+
+jar {
+    from("${rootProject.projectDir}/LICENSE") {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = "${rootProject.archives_base_name}-mc1.21"
+            from components.java
+        }
+    }
+    repositories {
+    }
+}
