@@ -1,12 +1,11 @@
 package net.shik.krepapi.protocol;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * Aggregates minimum build-version constraints and picks kick messaging when the client is too old.
+ * Aggregates build-version requirements (config + plugin constraints) and evaluates the client against their intersection.
  */
 public final class KrepapiVersionPolicy {
 
@@ -15,7 +14,7 @@ public final class KrepapiVersionPolicy {
             Objects.requireNonNull(minimumBuildVersion, "minimumBuildVersion");
         }
 
-        /** Global server floor (not tied to a named feature). */
+        /** Global server requirement (not tied to a named feature). */
         public static Constraint global(String minimumBuildVersion) {
             return new Constraint(null, minimumBuildVersion);
         }
@@ -25,53 +24,133 @@ public final class KrepapiVersionPolicy {
         }
     }
 
+    /**
+     * First failing requirement in evaluation order: config global, then registered constraints in list order.
+     */
+    public record VersionCheckFailure(Constraint constraint, KrepapiVersionRequirement.FailureReason reason) {
+    }
+
     private KrepapiVersionPolicy() {
     }
 
     /**
-     * Highest required minimum among the config floor and all plugin constraints.
+     * Ensures config and every registered constraint string parses as a {@link KrepapiVersionRequirement}.
+     *
+     * @throws IllegalArgumentException if any spec is invalid
      */
-    public static String effectiveMinimum(String configMinimum, List<Constraint> registered) {
-        String best = configMinimum;
+    public static void validateRequirements(String configMinimum, List<Constraint> registered) {
+        if (configMinimum != null && !configMinimum.isBlank()) {
+            KrepapiVersionRequirement.parse(configMinimum.trim());
+        }
         if (registered != null) {
             for (Constraint c : registered) {
                 if (c == null) {
                     continue;
                 }
-                if (best == null || KrepapiBuildVersion.compare(c.minimumBuildVersion(), best) > 0) {
-                    best = c.minimumBuildVersion();
+                String mv = c.minimumBuildVersion();
+                if (mv == null || mv.isBlank()) {
+                    continue;
                 }
+                KrepapiVersionRequirement.parse(mv.trim());
             }
         }
-        return best;
     }
 
     /**
-     * If the client does not satisfy every constraint, returns the strictest failing constraint
-     * (highest required version among those the client is below) for messaging.
+     * Human-readable summary for {@code s2c_hello.minModVersion}: if every requirement is a minimum ({@code >=}),
+     * returns the highest bound; otherwise joins specs with {@code "; "}.
      */
-    public static Constraint strictestFailure(String clientBuildVersion, String configMinimum, List<Constraint> registered) {
-        List<Constraint> all = new ArrayList<>();
+    public static String effectiveMinimum(String configMinimum, List<Constraint> registered) {
+        List<String> specs = new ArrayList<>();
         if (configMinimum != null && !configMinimum.isBlank()) {
-            all.add(Constraint.global(configMinimum));
+            specs.add(configMinimum.trim());
         }
         if (registered != null) {
             for (Constraint c : registered) {
-                if (c != null) {
-                    all.add(c);
+                if (c == null) {
+                    continue;
+                }
+                String mv = c.minimumBuildVersion();
+                if (mv != null && !mv.isBlank()) {
+                    specs.add(mv.trim());
                 }
             }
         }
-        List<Constraint> failing = new ArrayList<>();
-        for (Constraint c : all) {
-            if (!KrepapiBuildVersion.isAtLeast(clientBuildVersion, c.minimumBuildVersion())) {
-                failing.add(c);
-            }
-        }
-        if (failing.isEmpty()) {
+        if (specs.isEmpty()) {
             return null;
         }
-        failing.sort(Comparator.comparing(Constraint::minimumBuildVersion, KrepapiBuildVersion::compare).reversed());
-        return failing.getFirst();
+        boolean allMin = true;
+        String bestBound = null;
+        for (String s : specs) {
+            try {
+                KrepapiVersionRequirement r = KrepapiVersionRequirement.parse(s);
+                if (r.kind() != KrepapiVersionRequirement.Kind.MIN_INCLUSIVE) {
+                    allMin = false;
+                    break;
+                }
+                String b = r.minInclusiveBoundSpec();
+                if (bestBound == null || KrepapiBuildVersion.compare(b, bestBound) > 0) {
+                    bestBound = b;
+                }
+            } catch (IllegalArgumentException ex) {
+                allMin = false;
+                break;
+            }
+        }
+        if (allMin && bestBound != null) {
+            return bestBound;
+        }
+        return String.join("; ", specs);
+    }
+
+    /**
+     * @return {@code null} if the client satisfies every requirement; otherwise the first failing constraint and reason.
+     */
+    public static VersionCheckFailure firstVersionCheckFailure(
+            String clientBuildVersion,
+            String configMinimum,
+            List<Constraint> registered
+    ) {
+        if (configMinimum != null && !configMinimum.isBlank()) {
+            String cfg = configMinimum.trim();
+            KrepapiVersionRequirement req = KrepapiVersionRequirement.parse(cfg);
+            if (!req.allows(clientBuildVersion)) {
+                return new VersionCheckFailure(Constraint.global(cfg), req.failureReasonFor(clientBuildVersion));
+            }
+        }
+        if (registered != null) {
+            for (Constraint c : registered) {
+                if (c == null) {
+                    continue;
+                }
+                String mv = c.minimumBuildVersion();
+                if (mv == null || mv.isBlank()) {
+                    continue;
+                }
+                String trimmed = mv.trim();
+                KrepapiVersionRequirement req = KrepapiVersionRequirement.parse(trimmed);
+                if (!req.allows(clientBuildVersion)) {
+                    return new VersionCheckFailure(c, req.failureReasonFor(clientBuildVersion));
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whether the client satisfies the intersection of config and all registered constraints.
+     */
+    public static boolean satisfiesAll(String clientBuildVersion, String configMinimum, List<Constraint> registered) {
+        return firstVersionCheckFailure(clientBuildVersion, configMinimum, registered) == null;
+    }
+
+    /**
+     * @deprecated Prefer {@link #firstVersionCheckFailure(String, String, List)} for correct kick messaging.
+     *             Returns only the failing {@link Constraint} (same constraint as {@code firstVersionCheckFailure}, without reason).
+     */
+    @Deprecated
+    public static Constraint strictestFailure(String clientBuildVersion, String configMinimum, List<Constraint> registered) {
+        VersionCheckFailure f = firstVersionCheckFailure(clientBuildVersion, configMinimum, registered);
+        return f == null ? null : f.constraint();
     }
 }

@@ -19,7 +19,9 @@ public final class KrepapiPaperVersionGate {
     }
 
     /**
-     * Require the client's KrepAPI build version to be at least {@code semver} (in addition to {@code config.yml} and other plugins).
+     * Add a global client build requirement (in addition to {@code config.yml} and other plugins). The {@code semver}
+     * argument is a {@link net.shik.krepapi.protocol.KrepapiVersionRequirement} expression (e.g. {@code 1.2.0} for
+     * {@code >= 1.2.0}, {@code 1.1.x}, {@code <2.0.0}, {@code =1.2.0}). Invalid expressions throw when registering.
      */
     public void requireMinimumBuildVersion(String semver) {
         krepapi.registerVersionConstraint(owner, KrepapiVersionPolicy.Constraint.global(semver));

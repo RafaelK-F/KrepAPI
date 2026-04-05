@@ -26,11 +26,11 @@ import net.shik.krepapi.net.KrepapiMouseActionC2SPayload;
 import net.shik.krepapi.net.KrepapiMouseCaptureS2CPayload;
 import net.shik.krepapi.net.KrepapiRawCaptureS2CPayload;
 import net.shik.krepapi.net.KrepapiRawKeyC2SPayload;
-import net.shik.krepapi.protocol.KrepapiBuildVersion;
 import net.shik.krepapi.protocol.KrepapiCapabilities;
 import net.shik.krepapi.protocol.KrepapiKickReasons;
 import net.shik.krepapi.protocol.KrepapiProtocolVersion;
 import net.shik.krepapi.protocol.KrepapiVersionPolicy;
+import net.shik.krepapi.protocol.KrepapiVersionRequirement;
 import net.shik.krepapi.protocol.ProtocolMessages;
 
 public final class KrepapiFabricServerNetworking {
@@ -66,10 +66,12 @@ public final class KrepapiFabricServerNetworking {
     }
 
     public static void registerMinimumBuildVersion(String modId, String semver) {
+        KrepapiVersionRequirement.parse(semver.trim());
         MOD_CONSTRAINTS.add(new ModConstraint(modId, KrepapiVersionPolicy.Constraint.global(semver)));
     }
 
     public static void registerMinimumBuildVersionForFeature(String modId, String featureId, String semver) {
+        KrepapiVersionRequirement.parse(semver.trim());
         MOD_CONSTRAINTS.add(new ModConstraint(modId, KrepapiVersionPolicy.Constraint.feature(featureId, semver)));
     }
 
@@ -113,6 +115,12 @@ public final class KrepapiFabricServerNetworking {
     }
 
     public static void register() {
+        try {
+            KrepapiVersionRequirement.parse(settings.minimumModVersion.trim());
+        } catch (IllegalArgumentException ex) {
+            LOGGER.error("Invalid KrepAPI minimumModVersion in KrepapiFabricServerSettings: {}", ex.getMessage());
+        }
+
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             if (!settings.requireClientOnDedicatedServer || !server.isDedicatedServer()) {
                 return;
@@ -146,21 +154,13 @@ public final class KrepapiFabricServerNetworking {
             if (entry == null) {
                 return;
             }
-            if (!KrepapiBuildVersion.isAtLeast(payload.modVersion(), entry.effectiveMin)) {
-                KrepapiVersionPolicy.Constraint fail = KrepapiVersionPolicy.strictestFailure(
-                        payload.modVersion(),
-                        entry.configMin,
-                        entry.constraintsSnapshot
-                );
-                String kick;
-                if (fail != null && fail.featureId() != null) {
-                    kick = KrepapiKickReasons.modBuildVersionTooOldForFeature(fail.featureId(), fail.minimumBuildVersion());
-                } else if (fail != null) {
-                    kick = KrepapiKickReasons.modBuildVersionTooOld(fail.minimumBuildVersion());
-                } else {
-                    kick = KrepapiKickReasons.modBuildVersionTooOld(entry.effectiveMin);
-                }
-                player.connection.disconnect(Component.literal(kick));
+            KrepapiVersionPolicy.VersionCheckFailure fail = KrepapiVersionPolicy.firstVersionCheckFailure(
+                    payload.modVersion(),
+                    entry.configMin,
+                    entry.constraintsSnapshot
+            );
+            if (fail != null) {
+                player.connection.disconnect(Component.literal(KrepapiKickReasons.forVersionCheckFailure(fail)));
                 return;
             }
             HANDSHAKE.setClientCapabilities(player.getUUID(), payload.capabilities());
@@ -207,6 +207,13 @@ public final class KrepapiFabricServerNetworking {
                     : 0;
             String cfg = settings.minimumModVersion;
             List<KrepapiVersionPolicy.Constraint> snap = snapshotConstraints();
+            try {
+                KrepapiVersionPolicy.validateRequirements(cfg, snap);
+            } catch (IllegalArgumentException ex) {
+                LOGGER.error("Invalid KrepAPI version requirements: {}", ex.getMessage());
+                player.connection.disconnect(Component.literal("KrepAPI server version requirements are misconfigured."));
+                return;
+            }
             String effectiveMin = KrepapiVersionPolicy.effectiveMinimum(cfg, snap);
             HANDSHAKE.begin(player.getUUID(), nonce, effectiveMin, flags != 0, cfg, snap);
             HANDSHAKE_TICKS.put(player.getUUID(), 0);

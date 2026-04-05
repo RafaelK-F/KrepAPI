@@ -7,11 +7,25 @@ Binary layout is implemented in [`ProtocolMessages`](https://github.com/RafaelK-
 | Layer | Where | Meaning |
 | --- | --- | --- |
 | **Protocol version** | `protocolVersion` in packets, `KrepapiProtocolVersion.CURRENT` | Wire layout and field semantics. Bump when the binary format changes. |
-| **Build version** | `minModVersion` / `modVersion` (UTF-8 strings) | SemVer-style **KrepAPI client mod release** (e.g. `1.2.0`). Compared with [`KrepapiBuildVersion`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiBuildVersion.java) (numeric `major.minor.patch`, optional `-prerelease`; `+build` metadata ignored). Short cores like `1.0` are treated as `1.0.0` (implicit zero patch). Optional leading `v`/`V` before a digit is stripped. If both compared strings fail to parse, ordering falls back to lexicographic `String.compareTo`. |
+| **Build version** | `minModVersion` / `modVersion` (UTF-8 strings) | SemVer-style **KrepAPI client mod release** (e.g. `1.2.0`). Compared with [`KrepapiBuildVersion`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiBuildVersion.java) (numeric `major.minor.patch`, optional `-prerelease`; `+build` metadata ignored). Short cores like `1.0` are treated as `1.0.0` (implicit zero patch) **when parsing a plain version string**. Optional leading `v`/`V` before a digit is stripped. If both compared strings fail to parse, ordering falls back to lexicographic `String.compareTo`. |
 
-Servers compute an **effective** minimum build version from `config.yml` (Paper) or `KrepapiFabricServerNetworking.settings.minimumModVersion` (Fabric) plus optional plugin/mod registrations; `s2c_hello.minModVersion` carries that effective value. The client still reports a **single** build string in `c2s_client_info.modVersion` (from `fabric.mod.json`).
+### Build requirement expressions (Paper / Fabric server)
 
-Shared helpers: [`KrepapiVersionPolicy`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiVersionPolicy.java) (aggregate minimum, kick messaging), [`KrepapiKickReasons`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiKickReasons.java).
+Server-side `minimum-mod-version` (Paper) and `KrepapiFabricServerSettings.minimumModVersion` (Fabric), plus plugin/mod registrations, are parsed as [`KrepapiVersionRequirement`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiVersionRequirement.java) strings. The client must satisfy **every** requirement (intersection). Invalid specs are rejected at plugin enable / join (Paper) or logged / join (Fabric).
+
+| Syntax | Meaning |
+| --- | --- |
+| `X.Y.Z` (three numeric parts, no prefix) | **Minimum** build: client `>= X.Y.Z` (backward compatible with older configs). |
+| `X.Y.Z>` | Same as bare `X.Y.Z` (explicit floor). |
+| `=X.Y.Z` | **Exact** build only (needed because bare `X.Y.Z` remains a floor). |
+| `<X.Y.Z` | Client must be **strictly less** than `X.Y.Z` (SemVer order, including prerelease). |
+| `X.Y.x` or `X.Y.*` | **Minor line**: client must match that `major.minor` (any patch). |
+| `X.Y` (two numeric parts) | Same as `X.Y.x` (not the same as parsing `X.Y` as `X.Y.0` in `KrepapiBuildVersion` alone—this form is only for requirements). |
+| `X.x.Z` / `X.*.Z` | **Invalid** (wildcard in the middle). |
+
+Servers compute a **summary** for `s2c_hello.minModVersion`: if every requirement is a minimum (`>=`), the field is the **highest** bound (same idea as the old “effective minimum”); otherwise it is the specs joined with `"; "`. The field is informational—the authoritative check is on `c2s_client_info.modVersion` after join.
+
+Shared helpers: [`KrepapiVersionPolicy`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiVersionPolicy.java) (intersection, kick messaging), [`KrepapiKickReasons`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiKickReasons.java).
 
 ## Channels (play phase)
 
@@ -19,7 +33,7 @@ Identifiers match vanilla custom payload ids (`namespace:path`):
 
 | Id | Direction | Purpose |
 | --- | --- | --- |
-| `krepapi:s2c_hello` | S → C | Handshake challenge + minimum **client build** version (SemVer). |
+| `krepapi:s2c_hello` | S → C | Handshake challenge + **client build requirement summary** (UTF-8; see build requirement expressions above). |
 | `krepapi:c2s_client_info` | C → S | Client **build** version, protocol version, capabilities, echoed nonce. |
 | `krepapi:s2c_bindings` | S → C | Server-defined key bindings. |
 | `krepapi:s2c_raw_capture` | S → C | Enable/disable server-driven raw key capture (protocol v2+). |

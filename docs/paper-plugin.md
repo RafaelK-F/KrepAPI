@@ -28,7 +28,7 @@ Other plugins can depend on the `:protocol` Gradle project (or copy the `net.shi
 | Key | Default | Description |
 | --- | --- | --- |
 | `require-krepapi` | `true` | Kick after `handshake-timeout-ticks` if no valid `c2s_client_info`. |
-| `minimum-mod-version` | `1.2.0` | SemVer floor for the client KrepAPI build; combined with API registrations (see below). Use numeric cores (e.g. `1.10.0`); `1.9` vs `1.10` compare numerically when both parse. Leading `v` is accepted (e.g. `v1.2.0`). If a value cannot be parsed, ordering falls back to lexicographic string compare only when both sides are unparsable. |
+| `minimum-mod-version` | `1.2.0` | **Build requirement expression** for the client KrepAPI mod (see [`docs/protocol.md`](protocol.md), section *Build requirement expressions*). Bare `X.Y.Z` still means `>= X.Y.Z`. Combined with `versionGate` registrations; the client must satisfy **all** of them. Invalid values disable the Paper plugin on startup. |
 | `handshake-timeout-ticks` | `200` | Timeout (20 ticks = 1 s). |
 | `send-hello-on-join` | `true` | Send `s2c_hello` on join. |
 | `example-bindings` | `true` | Push a sample binding after join. |
@@ -48,7 +48,7 @@ public void onEnable() {
 }
 ```
 
-Registrations are removed when your plugin disables. The effective minimum sent in `s2c_hello` is the **maximum** of `minimum-mod-version`, every global requirement, and every feature-specific requirement. The client still sends one build string; feature labels only affect disconnect messaging.
+Registrations are removed when your plugin disables. Each `requireMinimumBuildVersion*` string uses the same expression syntax as `minimum-mod-version` (not only floors: e.g. `1.1.x`, `<2.0.0`, `=1.2.0`). The value sent in `s2c_hello.minModVersion` is a **summary** (highest floor if all requirements are `>=`, otherwise joined specs). The client still sends one build string; feature labels only affect disconnect messaging.
 
 ## Security
 

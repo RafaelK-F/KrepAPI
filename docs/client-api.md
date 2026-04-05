@@ -58,12 +58,12 @@ On `s2c_hello`, the client automatically sends `c2s_client_info` with:
 
 [`KrepapiFabricServerNetworking`](https://github.com/RafaelK-F/KrepAPI/blob/main/fabric-1-21/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java) mirrors the Paper handshake. Set `KrepapiFabricServerNetworking.settings.requireClientOnDedicatedServer = true` from your mod if you want the same kick behaviour as Paper's `require-krepapi` (default is `false` for LAN / integrated server friendliness).
 
-**Minimum client build version** defaults via `KrepapiFabricServerNetworking.settings.minimumModVersion` (numeric SemVer-style cores such as `1.10.0`; see protocol docs). You can raise it further from your mod initializer:
+**Client build requirements** default via `KrepapiFabricServerNetworking.settings.minimumModVersion` using the same expression syntax as Paper (`>=` floor, `=`, `<`, `X.Y.x`, etc.; see [`docs/protocol.md`](protocol.md)). You can add constraints from your mod initializer:
 
-* `registerMinimumBuildVersion(String modId, String semver)` — global floor attributed to your mod id
+* `registerMinimumBuildVersion(String modId, String semver)` — global requirement attributed to your mod id (any valid expression, not only a floor)
 * `registerMinimumBuildVersionForFeature(String modId, String featureId, String semver)` — same, with a feature label for kick text
 * `clearBuildRequirementsForMod(String modId)` — drop all requirements registered under that mod id
 
-The effective minimum is the **maximum** of `settings.minimumModVersion` and all registrations, matching the Paper `config.yml` + plugin API behaviour.
+The client must satisfy **every** requirement: `settings.minimumModVersion` **and** all registrations (intersection), matching Paper `config.yml` + `versionGate`. The `s2c_hello.minModVersion` summary follows the same rules as on Paper (highest floor if all are `>=`, otherwise joined specs).
 
 **Migration:** Older snippets that assigned `KrepapiFabricServerNetworking.minimumModVersion` (or the other two public `volatile` fields) should use the single [`KrepapiFabricServerSettings`](https://github.com/RafaelK-F/KrepAPI/blob/main/fabric-1-21/src/main/java/net/shik/krepapi/server/KrepapiFabricServerSettings.java) instance `KrepapiFabricServerNetworking.settings` instead.

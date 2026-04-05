@@ -1,6 +1,11 @@
 # Require KrepAPI client on the mod channel (kick after timeout if no valid client info).
 require-krepapi: true
-# Minimum KrepAPI client build version (SemVer 2.0: major.minor.patch; short forms like 1.0 count as 1.0.0).
+# KrepAPI client build requirement (see docs/protocol.md). Examples:
+#   "1.2.0" or "1.2.0>"  -> client >= 1.2.0
+#   "=1.2.0"             -> exact 1.2.0 only
+#   "<2.0.0"             -> client must be older than 2.0.0
+#   "1.1.x" or "1.1"     -> major.minor line 1.1.*
+# Invalid patterns (e.g. "1.x.2") prevent the plugin from enabling.
 minimum-mod-version: "1.2.0"
 # Ticks before kicking when require-krepapi is true (20 ticks = 1 s).
 handshake-timeout-ticks: 200

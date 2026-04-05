@@ -18,8 +18,8 @@ import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.jetbrains.annotations.NotNull;
 
 import net.kyori.adventure.text.Component;
-import net.shik.krepapi.protocol.KrepapiBuildVersion;
 import net.shik.krepapi.protocol.KrepapiCapabilities;
+import net.shik.krepapi.protocol.KrepapiVersionRequirement;
 import net.shik.krepapi.protocol.KrepapiChannels;
 import net.shik.krepapi.protocol.KrepapiKickReasons;
 import net.shik.krepapi.protocol.KrepapiProtocolVersion;
@@ -36,6 +36,13 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        try {
+            KrepapiVersionRequirement.parse(getConfig().getString("minimum-mod-version", "1.2.0").trim());
+        } catch (IllegalArgumentException ex) {
+            getLogger().severe("Invalid minimum-mod-version in config.yml: " + ex.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
         registerChannels();
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getMessenger().registerIncomingPluginChannel(this, KrepapiChannels.C2S_CLIENT_INFO, this);
@@ -64,6 +71,12 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
     }
 
     void registerVersionConstraint(@NotNull Plugin owner, @NotNull KrepapiVersionPolicy.Constraint constraint) {
+        try {
+            KrepapiVersionRequirement.parse(constraint.minimumBuildVersion().trim());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid KrepAPI version requirement for " + owner.getName() + ": "
+                    + ex.getMessage(), ex);
+        }
         constraintsByPlugin.computeIfAbsent(owner, p -> new CopyOnWriteArrayList<>()).add(constraint);
     }
 
@@ -150,6 +163,13 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
                 : 0;
         String configMin = getConfig().getString("minimum-mod-version", "1.2.0");
         List<KrepapiVersionPolicy.Constraint> snap = snapshotConstraints();
+        try {
+            KrepapiVersionPolicy.validateRequirements(configMin, snap);
+        } catch (IllegalArgumentException ex) {
+            getLogger().severe("Invalid KrepAPI version requirements: " + ex.getMessage());
+            player.kick(Component.text("KrepAPI server version requirements are misconfigured."));
+            return;
+        }
         String effectiveMin = KrepapiVersionPolicy.effectiveMinimum(configMin, snap);
         pending.put(player.getUniqueId(), new PendingHandshake(nonce, effectiveMin, configMin, snap, false));
 
@@ -240,21 +260,13 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
             player.kick(Component.text(KrepapiKickReasons.PROTOCOL_MISMATCH));
             return;
         }
-        if (!KrepapiBuildVersion.isAtLeast(info.modVersion(), h.effectiveMin)) {
-            KrepapiVersionPolicy.Constraint fail = KrepapiVersionPolicy.strictestFailure(
-                    info.modVersion(),
-                    h.configMin,
-                    h.constraintsSnapshot
-            );
-            String kick;
-            if (fail != null && fail.featureId() != null) {
-                kick = KrepapiKickReasons.modBuildVersionTooOldForFeature(fail.featureId(), fail.minimumBuildVersion());
-            } else if (fail != null) {
-                kick = KrepapiKickReasons.modBuildVersionTooOld(fail.minimumBuildVersion());
-            } else {
-                kick = KrepapiKickReasons.modBuildVersionTooOld(h.effectiveMin);
-            }
-            player.kick(Component.text(kick));
+        KrepapiVersionPolicy.VersionCheckFailure fail = KrepapiVersionPolicy.firstVersionCheckFailure(
+                info.modVersion(),
+                h.configMin,
+                h.constraintsSnapshot
+        );
+        if (fail != null) {
+            player.kick(Component.text(KrepapiKickReasons.forVersionCheckFailure(fail)));
             return;
         }
         clientCapabilities.put(player.getUniqueId(), info.capabilities());

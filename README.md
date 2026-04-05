@@ -28,7 +28,7 @@ Protocol v2 adds optional `s2c_raw_capture` → `c2s_raw_key`, and `s2c_intercep
 
 ## Versioning
 
-There are two layers: a wire **protocol version** (packet layout, `KrepapiProtocolVersion.CURRENT`) and a SemVer **build version** for the client mod (`fabric.mod.json` / handshake strings). Servers can enforce minimums via config and APIs; see [docs/protocol.md](docs/protocol.md).
+There are two layers: a wire **protocol version** (packet layout, `KrepapiProtocolVersion.CURRENT`) and a SemVer **build version** for the client mod (`fabric.mod.json` / handshake strings). Servers enforce **requirement expressions** (floors, exact, ceilings, minor lines) via config and APIs; see [docs/protocol.md](docs/protocol.md).
 
 ## Modules
 

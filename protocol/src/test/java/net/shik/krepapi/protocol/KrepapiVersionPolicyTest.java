@@ -62,4 +62,23 @@ class KrepapiVersionPolicyTest {
         assertEquals(null, c.featureId());
         assertEquals("1.5.0", c.minimumBuildVersion());
     }
+
+    @Test
+    void effectiveMinimumJoinsMixedSpecsWithSemicolon() {
+        assertEquals(
+                "1.1.x; 1.2.0",
+                KrepapiVersionPolicy.effectiveMinimum(
+                        "1.1.x",
+                        List.of(KrepapiVersionPolicy.Constraint.global("1.2.0"))));
+    }
+
+    @Test
+    void firstVersionCheckFailureFeatureConstraint() {
+        KrepapiVersionPolicy.VersionCheckFailure f = KrepapiVersionPolicy.firstVersionCheckFailure(
+                "1.0.0",
+                "1.0.0",
+                List.of(KrepapiVersionPolicy.Constraint.feature("feat", "1.2.0")));
+        assertEquals("feat", f.constraint().featureId());
+        assertEquals(KrepapiVersionRequirement.FailureReason.TOO_LOW, f.reason());
+    }
 }
