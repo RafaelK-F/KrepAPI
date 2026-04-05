@@ -25,15 +25,20 @@ public final class ServerBindingManager {
     private ServerBindingManager() {
     }
 
+    /** For {@link KrepapiKeyPipeline} override-vanilla matching against the live bound key. */
+    static KeyBinding getKeyBinding(String actionId) {
+        return ACTIVE.get(actionId);
+    }
+
     public static void applyBindings(MinecraftClient client, List<ProtocolMessages.BindingEntry> entries) {
         clear(client);
-        KrepapiKeyPipeline.setServerOverrideBindings(entries);
         for (ProtocolMessages.BindingEntry e : entries) {
             String translationKey = "krepapi.server." + sanitize(e.actionId());
             KeyBinding mapping = KeyBindingCompat.createServerBinding(translationKey, e.defaultKey());
             KeyBindingHelper.registerKeyBinding(mapping);
             ACTIVE.put(e.actionId(), mapping);
         }
+        KrepapiKeyPipeline.setServerOverrideBindings(entries);
     }
 
     public static void clear(MinecraftClient client) {

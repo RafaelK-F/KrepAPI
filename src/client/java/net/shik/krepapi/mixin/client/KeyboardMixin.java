@@ -19,7 +19,7 @@ public class KeyboardMixin {
         if (client.player == null && client.currentScreen == null) {
             return;
         }
-        if (KrepapiKeyPipeline.dispatch(client, input.key(), input.scancode(), action, input.modifiers())) {
+        if (KrepapiKeyPipeline.dispatch(client, input, action)) {
             ci.cancel();
         }
     }

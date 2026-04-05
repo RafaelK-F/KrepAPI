@@ -28,7 +28,7 @@ Translation keys default to `krepapi.server.<sanitized_actionId>`. Add matching 
 
 ## Vanilla override from server
 
-If a binding entry has `overrideVanilla: true`, the client consumes **press, repeat, and release** for that binding’s **default** GLFW key in [`KrepapiKeyPipeline`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/client/java/net/shik/krepapi/client/KrepapiKeyPipeline.java) (tracked while the key is held) so vanilla does not see a one-sided press. If the player rebound the key in controls, override matching may not apply until rebinding is reflected (limitation of this reference).
+If a binding entry has `overrideVanilla: true`, the client consumes **press, repeat, and release** for that binding’s **currently bound** key in [`KrepapiKeyPipeline`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/client/java/net/shik/krepapi/client/KrepapiKeyPipeline.java): each event is matched with `KeyBinding.matchesKey(KeyInput)` against the live `KeyBinding` from [`ServerBindingManager`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/client/java/net/shik/krepapi/client/ServerBindingManager.java), so rebinding in Minecraft’s controls applies immediately. GLFW key codes from the event are still used to pair press with repeat/release while the key is held.
 
 ## Server-driven raw capture (protocol v2+)
 

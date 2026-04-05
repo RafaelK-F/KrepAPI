@@ -9,6 +9,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.option.KeyBinding;
 import net.shik.krepapi.api.KrepapiKeyEvent;
 import net.shik.krepapi.api.KrepapiKeyListener;
 import net.shik.krepapi.protocol.ProtocolMessages;
@@ -18,7 +20,8 @@ import net.shik.krepapi.protocol.ProtocolMessages;
  */
 public final class KrepapiKeyPipeline {
     private static final List<RegisteredListener> LISTENERS = new CopyOnWriteArrayList<>();
-    private static final List<ProtocolMessages.BindingEntry> SERVER_OVERRIDE_KEYS = new CopyOnWriteArrayList<>();
+    /** {@code actionId}s with {@code overrideVanilla}; matched live via {@link KeyBinding#matchesKey(KeyInput)}. */
+    private static final List<String> SERVER_OVERRIDE_ACTION_IDS = new CopyOnWriteArrayList<>();
     /** GLFW keys whose press was consumed for {@code overrideVanilla}; release/repeat consumed until release. */
     private static final Set<Integer> OVERRIDE_HELD_KEYS = new HashSet<>();
 
@@ -39,25 +42,28 @@ public final class KrepapiKeyPipeline {
     }
 
     static void setServerOverrideBindings(List<ProtocolMessages.BindingEntry> entries) {
-        SERVER_OVERRIDE_KEYS.clear();
+        SERVER_OVERRIDE_ACTION_IDS.clear();
         OVERRIDE_HELD_KEYS.clear();
         for (ProtocolMessages.BindingEntry e : entries) {
             if (e.overrideVanilla()) {
-                SERVER_OVERRIDE_KEYS.add(e);
+                SERVER_OVERRIDE_ACTION_IDS.add(e.actionId());
             }
         }
     }
 
     static void clearServerOverrides() {
-        SERVER_OVERRIDE_KEYS.clear();
+        SERVER_OVERRIDE_ACTION_IDS.clear();
         OVERRIDE_HELD_KEYS.clear();
     }
 
     /**
      * @return true if vanilla handling for this key event should be skipped
      */
-    public static boolean dispatch(MinecraftClient client, int key, int scancode, int action, int modifiers) {
-        KrepapiKeyEvent event = new KrepapiKeyEvent(client, key, scancode, action, modifiers);
+    public static boolean dispatch(MinecraftClient client, KeyInput input, int glfwAction) {
+        int key = input.key();
+        int scancode = input.scancode();
+        int modifiers = input.modifiers();
+        KrepapiKeyEvent event = new KrepapiKeyEvent(client, key, scancode, glfwAction, modifiers);
         boolean consume = false;
         for (RegisteredListener r : LISTENERS) {
             if (r.listener.onKey(event)) {
@@ -65,21 +71,23 @@ public final class KrepapiKeyPipeline {
                 break;
             }
         }
-        if (RawCaptureState.sendIfCapturing(client, key, scancode, action, modifiers)) {
+        if (RawCaptureState.sendIfCapturing(client, key, scancode, glfwAction, modifiers)) {
             consume = true;
         }
         if (!consume && InterceptKeyState.shouldConsumeVanillaKey(key)) {
             consume = true;
         }
-        if (!consume && shouldConsumeForServerBinding(client, key, action)) {
+        if (!consume && shouldConsumeForServerBinding(input, glfwAction)) {
             consume = true;
         }
         return consume;
     }
 
-    private static boolean shouldConsumeForServerBinding(MinecraftClient client, int key, int action) {
-        for (ProtocolMessages.BindingEntry e : SERVER_OVERRIDE_KEYS) {
-            if (e.defaultKey() != key) {
+    private static boolean shouldConsumeForServerBinding(KeyInput input, int action) {
+        int key = input.key();
+        for (String actionId : SERVER_OVERRIDE_ACTION_IDS) {
+            KeyBinding kb = ServerBindingManager.getKeyBinding(actionId);
+            if (kb == null || !kb.matchesKey(input)) {
                 continue;
             }
             if (action == GLFW.GLFW_PRESS) {
