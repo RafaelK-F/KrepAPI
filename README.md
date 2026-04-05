@@ -2,7 +2,7 @@
 
 [![KrepAPI-RoadMapBanner](https://cdn.modrinth.com/data/cached_images/9fd6e447379752d78e9e062e1dc40d43bba968ec_0.webp)](https://github.com/RafaelK-F/KrepAPI/wiki/Roadmap)
 
-Fabric client bridge for servers: custom key bindings synced from the host, optional raw-key hooks for addons, and a handshake so Paper/Fabric servers can require this mod. Install only on servers that use KrepAPI. Needs Fabric API.
+Fabric client bridge for servers: custom key bindings synced from the host, optional raw-key hooks for addons, and a handshake so Paper/Fabric servers can require this mod. Install only on servers that use KrepAPI. Needs Fabric API. Targets **Minecraft 26.1.x** with **Java 25** (Mojang mappings via Fabric Loom; no Yarn).
 
 The server never touches GLFW directly; the client does not expose raw input without a server opt-in.
 

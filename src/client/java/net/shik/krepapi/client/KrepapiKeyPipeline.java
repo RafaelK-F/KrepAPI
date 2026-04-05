@@ -8,9 +8,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.option.KeyBinding;
 import net.shik.krepapi.api.KrepapiKeyEvent;
 import net.shik.krepapi.api.KrepapiKeyListener;
 import net.shik.krepapi.protocol.ProtocolMessages;
@@ -20,9 +20,8 @@ import net.shik.krepapi.protocol.ProtocolMessages;
  */
 public final class KrepapiKeyPipeline {
     private static final List<RegisteredListener> LISTENERS = new CopyOnWriteArrayList<>();
-    /** {@code actionId}s with {@code overrideVanilla}; matched live via {@link KeyBinding#matchesKey(KeyInput)}. */
+    /** {@code actionId}s with {@code overrideVanilla}; matched live via {@link KeyMapping#matchesKey(KeyInput)}. */
     private static final List<String> SERVER_OVERRIDE_ACTION_IDS = new CopyOnWriteArrayList<>();
-    /** GLFW keys whose press was consumed for {@code overrideVanilla}; release/repeat consumed until release. */
     private static final Set<Integer> OVERRIDE_HELD_KEYS = new HashSet<>();
 
     private KrepapiKeyPipeline() {
@@ -56,10 +55,7 @@ public final class KrepapiKeyPipeline {
         OVERRIDE_HELD_KEYS.clear();
     }
 
-    /**
-     * @return true if vanilla handling for this key event should be skipped
-     */
-    public static boolean dispatch(MinecraftClient client, KeyInput input, int glfwAction) {
+    public static boolean dispatch(Minecraft client, KeyInput input, int glfwAction) {
         int key = input.key();
         int scancode = input.scancode();
         int modifiers = input.modifiers();
@@ -86,7 +82,7 @@ public final class KrepapiKeyPipeline {
     private static boolean shouldConsumeForServerBinding(KeyInput input, int action) {
         int key = input.key();
         for (String actionId : SERVER_OVERRIDE_ACTION_IDS) {
-            KeyBinding kb = ServerBindingManager.getKeyBinding(actionId);
+            KeyMapping kb = ServerBindingManager.getKeyMapping(actionId);
             if (kb == null || !kb.matchesKey(input)) {
                 continue;
             }

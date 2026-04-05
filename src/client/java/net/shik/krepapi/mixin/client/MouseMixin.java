@@ -5,17 +5,17 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.Mouse;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
 import net.shik.krepapi.client.MouseCaptureState;
 
-@Mixin(Mouse.class)
+@Mixin(MouseHandler.class)
 public class MouseMixin {
 
     @Inject(method = "onMouseButton", at = @At("HEAD"), cancellable = true)
     private void krepapi$onMouseButton(long window, int button, int action, int mods, CallbackInfo ci) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null && client.currentScreen == null) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null && client.screen == null) {
             return;
         }
         if (MouseCaptureState.sendIfCapturingButton(client, button, action, mods)) {
@@ -25,8 +25,8 @@ public class MouseMixin {
 
     @Inject(method = "onMouseScroll", at = @At("HEAD"), cancellable = true)
     private void krepapi$onMouseScroll(long window, double horizontal, double vertical, CallbackInfo ci) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null && client.currentScreen == null) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null && client.screen == null) {
             return;
         }
         if (MouseCaptureState.sendIfCapturingScroll(client, horizontal, vertical)) {

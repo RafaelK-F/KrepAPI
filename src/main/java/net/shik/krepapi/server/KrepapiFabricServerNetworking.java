@@ -15,8 +15,8 @@ import org.slf4j.LoggerFactory;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.shik.krepapi.net.KrepapiBindingsS2CPayload;
 import net.shik.krepapi.net.KrepapiClientInfoC2SPayload;
 import net.shik.krepapi.net.KrepapiHelloS2CPayload;
@@ -37,66 +37,42 @@ public final class KrepapiFabricServerNetworking {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("krepapi");
 
-    /**
-     * Receives {@link KrepapiKeyActionC2SPayload} on the dedicated server when mods register a listener.
-     * The built-in mod does not implement gameplay handling; Paper users get logging from KrepAPI-Paper instead.
-     */
     @FunctionalInterface
     public interface KeyActionListener {
-        void onKeyAction(ServerPlayerEntity player, KrepapiKeyActionC2SPayload payload);
+        void onKeyAction(ServerPlayer player, KrepapiKeyActionC2SPayload payload);
     }
 
-    /**
-     * Receives {@link KrepapiRawKeyC2SPayload} when mods register a listener.
-     */
     @FunctionalInterface
     public interface RawKeyListener {
-        void onRawKey(ServerPlayerEntity player, KrepapiRawKeyC2SPayload payload);
+        void onRawKey(ServerPlayer player, KrepapiRawKeyC2SPayload payload);
     }
 
-    /**
-     * Receives {@link KrepapiMouseActionC2SPayload} when mods register a listener.
-     */
     @FunctionalInterface
     public interface MouseActionListener {
-        void onMouseAction(ServerPlayerEntity player, KrepapiMouseActionC2SPayload payload);
+        void onMouseAction(ServerPlayer player, KrepapiMouseActionC2SPayload payload);
     }
 
     public static final KrepapiFabricHandshakeState HANDSHAKE = new KrepapiFabricHandshakeState();
 
-    /**
-     * Per-player tick counter while waiting for {@code c2s_client_info}. Cleared when the player answers,
-     * on handshake timeout (together with {@link #HANDSHAKE}), and on {@link ServerPlayConnectionEvents#DISCONNECT}.
-     */
     private static final Map<UUID, Integer> HANDSHAKE_TICKS = new ConcurrentHashMap<>();
     private static final CopyOnWriteArrayList<ModConstraint> MOD_CONSTRAINTS = new CopyOnWriteArrayList<>();
     private static final CopyOnWriteArrayList<KeyActionListener> KEY_ACTION_LISTENERS = new CopyOnWriteArrayList<>();
     private static final CopyOnWriteArrayList<RawKeyListener> RAW_KEY_LISTENERS = new CopyOnWriteArrayList<>();
     private static final CopyOnWriteArrayList<MouseActionListener> MOUSE_ACTION_LISTENERS = new CopyOnWriteArrayList<>();
 
-    /** Handshake and version-gate options for the dedicated Fabric server. */
     public static final KrepapiFabricServerSettings settings = new KrepapiFabricServerSettings();
 
     private KrepapiFabricServerNetworking() {
     }
 
-    /**
-     * Registers a global minimum KrepAPI client build version for {@code modId} (e.g. your mod's Fabric id).
-     */
     public static void registerMinimumBuildVersion(String modId, String semver) {
         MOD_CONSTRAINTS.add(new ModConstraint(modId, KrepapiVersionPolicy.Constraint.global(semver)));
     }
 
-    /**
-     * Registers a named feature constraint for {@code modId}.
-     */
     public static void registerMinimumBuildVersionForFeature(String modId, String featureId, String semver) {
         MOD_CONSTRAINTS.add(new ModConstraint(modId, KrepapiVersionPolicy.Constraint.feature(featureId, semver)));
     }
 
-    /**
-     * Removes all build-version requirements registered under {@code modId}.
-     */
     public static void clearBuildRequirementsForMod(String modId) {
         MOD_CONSTRAINTS.removeIf(m -> modId.equals(m.modId));
     }
@@ -129,11 +105,8 @@ public final class KrepapiFabricServerNetworking {
         MOUSE_ACTION_LISTENERS.remove(listener);
     }
 
-    /**
-     * Capability bitfield from the player's last successful {@code c2s_client_info}, or {@code 0} if unknown.
-     */
-    public static int getClientCapabilities(ServerPlayerEntity player) {
-        return HANDSHAKE.getClientCapabilities(player.getUuid());
+    public static int getClientCapabilities(ServerPlayer player) {
+        return HANDSHAKE.getClientCapabilities(player.getUUID());
     }
 
     private record ModConstraint(String modId, KrepapiVersionPolicy.Constraint constraint) {
@@ -144,8 +117,8 @@ public final class KrepapiFabricServerNetworking {
             if (!settings.requireClientOnDedicatedServer || !server.isDedicated()) {
                 return;
             }
-            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-                UUID id = player.getUuid();
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                UUID id = player.getUUID();
                 KrepapiFabricHandshakeState.Entry e = HANDSHAKE.get(id);
                 if (e == null || e.answered) {
                     HANDSHAKE_TICKS.remove(id);
@@ -155,21 +128,21 @@ public final class KrepapiFabricServerNetworking {
                 if (t >= settings.handshakeTimeoutTicks) {
                     HANDSHAKE_TICKS.remove(id);
                     HANDSHAKE.remove(id);
-                    player.networkHandler.disconnect(Text.literal(KrepapiKickReasons.HANDSHAKE_TIMEOUT));
+                    player.connection.disconnect(Component.literal(KrepapiKickReasons.HANDSHAKE_TIMEOUT));
                 }
             }
         });
 
         ServerPlayNetworking.registerGlobalReceiver(KrepapiClientInfoC2SPayload.ID, (payload, context) -> {
-            ServerPlayerEntity player = context.player();
-            if (!HANDSHAKE.markAnswered(player.getUuid(), payload.challengeNonce())) {
+            ServerPlayer player = context.player();
+            if (!HANDSHAKE.markAnswered(player.getUUID(), payload.challengeNonce())) {
                 return;
             }
             if (payload.protocolVersion() != KrepapiProtocolVersion.CURRENT) {
-                player.networkHandler.disconnect(Text.literal(KrepapiKickReasons.PROTOCOL_MISMATCH));
+                player.connection.disconnect(Component.literal(KrepapiKickReasons.PROTOCOL_MISMATCH));
                 return;
             }
-            KrepapiFabricHandshakeState.Entry entry = HANDSHAKE.get(player.getUuid());
+            KrepapiFabricHandshakeState.Entry entry = HANDSHAKE.get(player.getUUID());
             if (entry == null) {
                 return;
             }
@@ -187,14 +160,14 @@ public final class KrepapiFabricServerNetworking {
                 } else {
                     kick = KrepapiKickReasons.modBuildVersionTooOld(entry.effectiveMin);
                 }
-                player.networkHandler.disconnect(Text.literal(kick));
+                player.connection.disconnect(Component.literal(kick));
                 return;
             }
-            HANDSHAKE.setClientCapabilities(player.getUuid(), payload.capabilities());
+            HANDSHAKE.setClientCapabilities(player.getUUID(), payload.capabilities());
         });
 
         ServerPlayNetworking.registerGlobalReceiver(KrepapiKeyActionC2SPayload.ID, (payload, context) -> {
-            ServerPlayerEntity player = context.player();
+            ServerPlayer player = context.player();
             for (KeyActionListener listener : KEY_ACTION_LISTENERS) {
                 try {
                     listener.onKeyAction(player, payload);
@@ -205,7 +178,7 @@ public final class KrepapiFabricServerNetworking {
         });
 
         ServerPlayNetworking.registerGlobalReceiver(KrepapiRawKeyC2SPayload.ID, (payload, context) -> {
-            ServerPlayerEntity player = context.player();
+            ServerPlayer player = context.player();
             for (RawKeyListener listener : RAW_KEY_LISTENERS) {
                 try {
                     listener.onRawKey(player, payload);
@@ -216,7 +189,7 @@ public final class KrepapiFabricServerNetworking {
         });
 
         ServerPlayNetworking.registerGlobalReceiver(KrepapiMouseActionC2SPayload.ID, (payload, context) -> {
-            ServerPlayerEntity player = context.player();
+            ServerPlayer player = context.player();
             for (MouseActionListener listener : MOUSE_ACTION_LISTENERS) {
                 try {
                     listener.onMouseAction(player, payload);
@@ -227,16 +200,16 @@ public final class KrepapiFabricServerNetworking {
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            ServerPlayerEntity player = handler.player;
-            long nonce = server.getOverworld().getRandom().nextLong();
+            ServerPlayer player = handler.player;
+            long nonce = server.overworld().getRandom().nextLong();
             byte flags = settings.requireClientOnDedicatedServer && server.isDedicated()
                     ? ProtocolMessages.HELLO_FLAG_REQUIRE_RESPONSE
                     : 0;
             String cfg = settings.minimumModVersion;
             List<KrepapiVersionPolicy.Constraint> snap = snapshotConstraints();
             String effectiveMin = KrepapiVersionPolicy.effectiveMinimum(cfg, snap);
-            HANDSHAKE.begin(player.getUuid(), nonce, effectiveMin, flags != 0, cfg, snap);
-            HANDSHAKE_TICKS.put(player.getUuid(), 0);
+            HANDSHAKE.begin(player.getUUID(), nonce, effectiveMin, flags != 0, cfg, snap);
+            HANDSHAKE_TICKS.put(player.getUUID(), 0);
             ServerPlayNetworking.send(player, new KrepapiHelloS2CPayload(
                     KrepapiProtocolVersion.CURRENT,
                     flags,
@@ -246,13 +219,13 @@ public final class KrepapiFabricServerNetworking {
         });
 
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-            UUID uuid = handler.player.getUuid();
+            UUID uuid = handler.player.getUUID();
             HANDSHAKE.remove(uuid);
             HANDSHAKE_TICKS.remove(uuid);
         });
     }
 
-    public static void sendBindings(ServerPlayerEntity player, List<ProtocolMessages.BindingEntry> entries) {
+    public static void sendBindings(ServerPlayer player, List<ProtocolMessages.BindingEntry> entries) {
         if (entries.size() > ProtocolMessages.MAX_BINDING_ENTRIES) {
             throw new IllegalArgumentException("too many binding entries: " + entries.size());
         }
@@ -261,22 +234,19 @@ public final class KrepapiFabricServerNetworking {
         ServerPlayNetworking.send(player, new KrepapiBindingsS2CPayload(copy));
     }
 
-    public static void sendRawCaptureConfig(ServerPlayerEntity player, ProtocolMessages.RawCaptureConfig config) {
+    public static void sendRawCaptureConfig(ServerPlayer player, ProtocolMessages.RawCaptureConfig config) {
         ServerPlayNetworking.send(player, new KrepapiRawCaptureS2CPayload(config));
     }
 
-    public static void sendInterceptKeys(ServerPlayerEntity player, ProtocolMessages.InterceptKeysSync sync) {
+    public static void sendInterceptKeys(ServerPlayer player, ProtocolMessages.InterceptKeysSync sync) {
         if (sync.entries().size() > ProtocolMessages.MAX_INTERCEPT_ENTRIES) {
             throw new IllegalArgumentException("too many intercept entries: " + sync.entries().size());
         }
         ServerPlayNetworking.send(player, new KrepapiInterceptKeysS2CPayload(sync.entries()));
     }
 
-    /**
-     * Sends {@code s2c_mouse_capture} only if the client advertised {@link KrepapiCapabilities#SERVER_MOUSE_CAPTURE}.
-     */
-    public static void sendMouseCaptureConfig(ServerPlayerEntity player, ProtocolMessages.MouseCaptureConfig config) {
-        if ((HANDSHAKE.getClientCapabilities(player.getUuid()) & KrepapiCapabilities.SERVER_MOUSE_CAPTURE) == 0) {
+    public static void sendMouseCaptureConfig(ServerPlayer player, ProtocolMessages.MouseCaptureConfig config) {
+        if ((HANDSHAKE.getClientCapabilities(player.getUUID()) & KrepapiCapabilities.SERVER_MOUSE_CAPTURE) == 0) {
             return;
         }
         ServerPlayNetworking.send(player, new KrepapiMouseCaptureS2CPayload(config));

@@ -5,20 +5,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 import net.shik.krepapi.net.KrepapiKeyActionC2SPayload;
 import net.shik.krepapi.protocol.ProtocolMessages;
 
 /**
- * Registers {@link KeyBinding}s for the current server's binding list and sends {@link KrepapiKeyActionC2SPayload}
- * on press and release (via {@link KeyBinding#isPressed()} edge detection).
+ * Registers {@link KeyMapping}s for the current server's binding list and sends {@link KrepapiKeyActionC2SPayload}
+ * on press and release (via {@link KeyMapping#isDown()} edge detection).
  */
 public final class ServerBindingManager {
-    private static final Map<String, KeyBinding> ACTIVE = new HashMap<>();
-    /** Previous-tick {@link KeyBinding#isPressed()} per {@code actionId}; cleared with {@link #clear}. */
+    private static final Map<String, KeyMapping> ACTIVE = new HashMap<>();
+    /** Previous-tick {@link KeyMapping#isDown()} per {@code actionId}; cleared with {@link #clear}. */
     private static final Map<String, Boolean> PREV_HELD = new HashMap<>();
     private static final AtomicInteger SEQUENCE = new AtomicInteger();
 
@@ -26,35 +26,35 @@ public final class ServerBindingManager {
     }
 
     /** For {@link KrepapiKeyPipeline} override-vanilla matching against the live bound key. */
-    static KeyBinding getKeyBinding(String actionId) {
+    static KeyMapping getKeyMapping(String actionId) {
         return ACTIVE.get(actionId);
     }
 
-    public static void applyBindings(MinecraftClient client, List<ProtocolMessages.BindingEntry> entries) {
+    public static void applyBindings(Minecraft client, List<ProtocolMessages.BindingEntry> entries) {
         clear(client);
         for (ProtocolMessages.BindingEntry e : entries) {
             String translationKey = "krepapi.server." + sanitize(e.actionId());
-            KeyBinding mapping = KeyBindingCompat.createServerBinding(translationKey, e.defaultKey());
-            KeyBindingHelper.registerKeyBinding(mapping);
+            KeyMapping mapping = KeyMappingCompat.createServerBinding(translationKey, e.defaultKey());
+            KeyMappingHelper.registerKeyMapping(mapping);
             ACTIVE.put(e.actionId(), mapping);
         }
         KrepapiKeyPipeline.setServerOverrideBindings(entries);
     }
 
-    public static void clear(MinecraftClient client) {
+    public static void clear(Minecraft client) {
         KrepapiKeyPipeline.clearServerOverrides();
         ACTIVE.clear();
         PREV_HELD.clear();
     }
 
-    public static void tick(MinecraftClient client) {
-        if (client.player == null || client.getNetworkHandler() == null) {
+    public static void tick(Minecraft client) {
+        if (client.player == null || client.getConnection() == null) {
             return;
         }
-        for (Map.Entry<String, KeyBinding> e : ACTIVE.entrySet()) {
+        for (Map.Entry<String, KeyMapping> e : ACTIVE.entrySet()) {
             String actionId = e.getKey();
-            KeyBinding km = e.getValue();
-            boolean down = km.isPressed();
+            KeyMapping km = e.getValue();
+            boolean down = km.isDown();
             boolean prev = Boolean.TRUE.equals(PREV_HELD.get(actionId));
             if (!prev && down) {
                 sendKeyAction(actionId, ProtocolMessages.KeyAction.PHASE_PRESS);

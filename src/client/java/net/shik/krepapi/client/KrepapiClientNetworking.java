@@ -3,7 +3,7 @@ package net.shik.krepapi.client;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.shik.krepapi.net.KrepapiBindingsS2CPayload;
 import net.shik.krepapi.net.KrepapiClientInfoC2SPayload;
 import net.shik.krepapi.net.KrepapiHelloS2CPayload;
@@ -38,22 +38,22 @@ public final class KrepapiClientNetworking {
         });
 
         ClientPlayNetworking.registerGlobalReceiver(KrepapiBindingsS2CPayload.ID, (payload, context) -> {
-            MinecraftClient client = context.client();
+            Minecraft client = context.client();
             client.execute(() -> ServerBindingManager.applyBindings(client, payload.entries()));
         });
 
         ClientPlayNetworking.registerGlobalReceiver(KrepapiRawCaptureS2CPayload.ID, (payload, context) -> {
-            MinecraftClient client = context.client();
+            Minecraft client = context.client();
             client.execute(() -> RawCaptureState.apply(payload.config()));
         });
 
         ClientPlayNetworking.registerGlobalReceiver(KrepapiInterceptKeysS2CPayload.ID, (payload, context) -> {
-            MinecraftClient client = context.client();
+            Minecraft client = context.client();
             client.execute(() -> InterceptKeyState.apply(new ProtocolMessages.InterceptKeysSync(payload.entries())));
         });
 
         ClientPlayNetworking.registerGlobalReceiver(KrepapiMouseCaptureS2CPayload.ID, (payload, context) -> {
-            MinecraftClient client = context.client();
+            Minecraft client = context.client();
             client.execute(() -> MouseCaptureState.apply(payload.config()));
         });
 

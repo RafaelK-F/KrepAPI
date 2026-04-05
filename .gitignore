@@ -50,3 +50,5 @@ $RECYCLE.BIN/     # NEU
 # Sonstiges
 target/
 local.properties  # NEU — lokale Build-Config (zB SDK-Pfade)
+CHANGELOG.md
+CHANGELOGsm.md

@@ -22,13 +22,13 @@ KrepApi.registerRawKeyListener(1000, myListener);
 
 ## Server bindings
 
-Servers send `s2c_bindings`; the client registers `KeyMapping` entries under category `key.categories.krepapi.server`. Each tick, `KeyBinding.isPressed()` edges send `c2s_key_action`: `PHASE_PRESS` when the key becomes held and `PHASE_RELEASE` when it is released (monotonic `sequence` per event). Focus and open GUIs affect detection the same way as vanilla key bindings.
+Servers send `s2c_bindings`; the client registers `KeyMapping` entries under category `key.categories.krepapi.server`. Each tick, `KeyMapping.isDown()` edges send `c2s_key_action`: `PHASE_PRESS` when the key becomes held and `PHASE_RELEASE` when it is released (monotonic `sequence` per event). Focus and open GUIs affect detection the same way as vanilla key bindings.
 
 Translation keys default to `krepapi.server.<sanitized_actionId>`. Add matching entries under `assets/<modid>/lang/` or ship a resource pack for readable names.
 
 ## Vanilla override from server
 
-If a binding entry has `overrideVanilla: true`, the client consumes **press, repeat, and release** for that binding’s **currently bound** key in [`KrepapiKeyPipeline`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/client/java/net/shik/krepapi/client/KrepapiKeyPipeline.java): each event is matched with `KeyBinding.matchesKey(KeyInput)` against the live `KeyBinding` from [`ServerBindingManager`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/client/java/net/shik/krepapi/client/ServerBindingManager.java), so rebinding in Minecraft’s controls applies immediately. GLFW key codes from the event are still used to pair press with repeat/release while the key is held.
+If a binding entry has `overrideVanilla: true`, the client consumes **press, repeat, and release** for that binding’s **currently bound** key in [`KrepapiKeyPipeline`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/client/java/net/shik/krepapi/client/KrepapiKeyPipeline.java): each event is matched with `KeyMapping.matchesKey(KeyInput)` against the live `KeyMapping` from [`ServerBindingManager`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/client/java/net/shik/krepapi/client/ServerBindingManager.java), so rebinding in Minecraft’s controls applies immediately. GLFW key codes from the event are still used to pair press with repeat/release while the key is held.
 
 ## Server-driven raw capture (protocol v2+)
 
@@ -38,7 +38,7 @@ Fabric server: [`KrepapiFabricServerNetworking.sendRawCaptureConfig`](https://gi
 
 ## Server-driven mouse capture (protocol v2+)
 
-The server can send `s2c_mouse_capture` (see [`ProtocolMessages.MouseCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/ProtocolMessages.java)) so the client emits `c2s_mouse_action` for mouse buttons and/or scroll, optionally with normalized cursor coordinates on each event. Optional `consumeVanilla` suppresses vanilla handling for matching `Mouse` callbacks (`MouseMixin`). Events are sent under the same play / GUI gate as raw keys (`player != null` or `currentScreen != null`).
+The server can send `s2c_mouse_capture` (see [`ProtocolMessages.MouseCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/ProtocolMessages.java)) so the client emits `c2s_mouse_action` for mouse buttons and/or scroll, optionally with normalized cursor coordinates on each event. Optional `consumeVanilla` suppresses vanilla handling for matching `MouseHandler` callbacks (`MouseMixin`). Events are sent under the same play / GUI gate as raw keys (`player != null` or `screen != null`).
 
 Fabric server: [`KrepapiFabricServerNetworking.sendMouseCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java) (skips sending if the client did not advertise `SERVER_MOUSE_CAPTURE`). Paper: [`KrepapiPaperPlugin.sendMouseCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/paper-plugin/src/main/java/net/shik/krepapi/paper/KrepapiPaperPlugin.java).
 
@@ -51,7 +51,7 @@ Fabric server: [`KrepapiFabricServerNetworking.sendMouseCaptureConfig`](https://
 On `s2c_hello`, the client automatically sends `c2s_client_info` with:
 
 * `KrepapiProtocolVersion.CURRENT`
-* **Build version** — the KrepAPI mod version string from `fabric.mod.json` / Gradle (use [SemVer](https://semver.org/) for releases, e.g. `1.1.0`, so server comparisons stay predictable)
+* **Build version** — the KrepAPI mod version string from `fabric.mod.json` / Gradle (use [SemVer](https://semver.org/) for releases, e.g. `1.1.1`, so server comparisons stay predictable)
 * Capabilities: `KEY_OVERRIDE | RAW_KEYS | SERVER_RAW_CAPTURE | INTERCEPT_KEYS | SERVER_MOUSE_CAPTURE`
 
 ## Fabric dedicated server

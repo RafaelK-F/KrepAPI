@@ -5,7 +5,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.shik.krepapi.net.KrepapiRawKeyC2SPayload;
 import net.shik.krepapi.protocol.ProtocolMessages;
 
@@ -47,15 +47,11 @@ public final class RawCaptureState {
         }
     }
 
-    /**
-     * If raw capture applies to this key, sends {@link KrepapiRawKeyC2SPayload} and returns whether
-     * {@link ProtocolMessages.RawCaptureConfig#consumeVanilla()} should suppress vanilla handling.
-     */
-    public static boolean sendIfCapturing(MinecraftClient client, int key, int scancode, int glfwAction, int modifiers) {
-        if (client.getNetworkHandler() == null) {
+    public static boolean sendIfCapturing(Minecraft client, int key, int scancode, int glfwAction, int modifiers) {
+        if (client.getConnection() == null) {
             return false;
         }
-        if (client.player == null && client.currentScreen == null) {
+        if (client.player == null && client.screen == null) {
             return false;
         }
         boolean active;

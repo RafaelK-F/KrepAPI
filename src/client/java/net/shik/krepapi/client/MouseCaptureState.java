@@ -3,7 +3,7 @@ package net.shik.krepapi.client;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.shik.krepapi.net.KrepapiMouseActionC2SPayload;
 import net.shik.krepapi.protocol.ProtocolMessages;
 
@@ -35,14 +35,11 @@ public final class MouseCaptureState {
         consumeVanilla = false;
     }
 
-    /**
-     * @return whether vanilla should skip handling for this button event
-     */
-    public static boolean sendIfCapturingButton(MinecraftClient client, int button, int glfwAction, int modifiers) {
-        if (client.getNetworkHandler() == null) {
+    public static boolean sendIfCapturingButton(Minecraft client, int button, int glfwAction, int modifiers) {
+        if (client.getConnection() == null) {
             return false;
         }
-        if (client.player == null && client.currentScreen == null) {
+        if (client.player == null && client.screen == null) {
             return false;
         }
         if (!enabled || (flags & ProtocolMessages.MOUSE_CAPTURE_BUTTONS) == 0) {
@@ -53,11 +50,11 @@ public final class MouseCaptureState {
         float cy = 0f;
         if ((flags & ProtocolMessages.MOUSE_CAPTURE_CURSOR_ON_EVENTS) != 0) {
             extras |= ProtocolMessages.MOUSE_ACTION_EXTRA_HAS_CURSOR;
-            double sw = client.getWindow().getScaledWidth();
-            double sh = client.getWindow().getScaledHeight();
+            int sw = client.getWindow().getGuiScaledWidth();
+            int sh = client.getWindow().getGuiScaledHeight();
             if (sw > 0 && sh > 0) {
-                cx = (float) (client.mouse.getX() / sw);
-                cy = (float) (client.mouse.getY() / sh);
+                cx = (float) (client.mouseHandler.getX() / sw);
+                cy = (float) (client.mouseHandler.getY() / sh);
                 cx = Math.min(1f, Math.max(0f, cx));
                 cy = Math.min(1f, Math.max(0f, cy));
             }
@@ -79,14 +76,11 @@ public final class MouseCaptureState {
         return consumeVanilla;
     }
 
-    /**
-     * @return whether vanilla should skip handling for this scroll event
-     */
-    public static boolean sendIfCapturingScroll(MinecraftClient client, double horizontal, double vertical) {
-        if (client.getNetworkHandler() == null) {
+    public static boolean sendIfCapturingScroll(Minecraft client, double horizontal, double vertical) {
+        if (client.getConnection() == null) {
             return false;
         }
-        if (client.player == null && client.currentScreen == null) {
+        if (client.player == null && client.screen == null) {
             return false;
         }
         if (!enabled || (flags & ProtocolMessages.MOUSE_CAPTURE_SCROLL) == 0) {
@@ -97,11 +91,11 @@ public final class MouseCaptureState {
         float cy = 0f;
         if ((flags & ProtocolMessages.MOUSE_CAPTURE_CURSOR_ON_EVENTS) != 0) {
             extras |= ProtocolMessages.MOUSE_ACTION_EXTRA_HAS_CURSOR;
-            double sw = client.getWindow().getScaledWidth();
-            double sh = client.getWindow().getScaledHeight();
+            int sw = client.getWindow().getGuiScaledWidth();
+            int sh = client.getWindow().getGuiScaledHeight();
             if (sw > 0 && sh > 0) {
-                cx = (float) (client.mouse.getX() / sw);
-                cy = (float) (client.mouse.getY() / sh);
+                cx = (float) (client.mouseHandler.getX() / sw);
+                cy = (float) (client.mouseHandler.getY() / sh);
                 cx = Math.min(1f, Math.max(0f, cx));
                 cy = Math.min(1f, Math.max(0f, cy));
             }

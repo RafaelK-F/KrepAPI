@@ -3,7 +3,7 @@
   "id": "krepapi",
   "version": "${version}",
   "name": "KrepAPI",
-  "description": "Client API for server-driven key bindings, raw key events, and optional mod requirement checks.",
+  "description": "Client API for server-driven key bindings, raw key and mouse events, and optional mod requirement checks (Minecraft 26.1.x, Mojang mappings).",
   "authors": [
     "shik"
   ],
