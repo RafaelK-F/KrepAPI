@@ -15,8 +15,8 @@ class KrepapiVersionPolicyTest {
                 "1.1.1",
                 List.of(
                         KrepapiVersionPolicy.Constraint.feature("a", "1.1.1"),
-                        KrepapiVersionPolicy.Constraint.global("1.2.0")));
-        assertEquals("1.2.0", eff);
+                        KrepapiVersionPolicy.Constraint.global("1.1.1")));
+        assertEquals("1.1.1", eff);
     }
 
     @Test
@@ -27,7 +27,7 @@ class KrepapiVersionPolicyTest {
                 List.of(
                         KrepapiVersionPolicy.Constraint.feature("low", "1.1.1"),
                         KrepapiVersionPolicy.Constraint.feature("high", "1.3.0"),
-                        KrepapiVersionPolicy.Constraint.feature("mid", "1.2.0")));
+                        KrepapiVersionPolicy.Constraint.feature("mid", "1.1.1")));
         assertEquals("high", c.featureId());
         assertEquals("1.3.0", c.minimumBuildVersion());
     }

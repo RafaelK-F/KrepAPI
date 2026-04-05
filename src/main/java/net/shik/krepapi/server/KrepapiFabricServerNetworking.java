@@ -16,6 +16,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.shik.krepapi.net.KrepapiBindingsS2CPayload;
 import net.shik.krepapi.net.KrepapiClientInfoC2SPayload;
@@ -114,7 +115,7 @@ public final class KrepapiFabricServerNetworking {
 
     public static void register() {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
-            if (!settings.requireClientOnDedicatedServer || !server.isDedicated()) {
+            if (!settings.requireClientOnDedicatedServer || !(server instanceof DedicatedServer)) {
                 return;
             }
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
@@ -133,7 +134,7 @@ public final class KrepapiFabricServerNetworking {
             }
         });
 
-        ServerPlayNetworking.registerGlobalReceiver(KrepapiClientInfoC2SPayload.ID, (payload, context) -> {
+        ServerPlayNetworking.registerGlobalReceiver(KrepapiClientInfoC2SPayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
             if (!HANDSHAKE.markAnswered(player.getUUID(), payload.challengeNonce())) {
                 return;
@@ -166,7 +167,7 @@ public final class KrepapiFabricServerNetworking {
             HANDSHAKE.setClientCapabilities(player.getUUID(), payload.capabilities());
         });
 
-        ServerPlayNetworking.registerGlobalReceiver(KrepapiKeyActionC2SPayload.ID, (payload, context) -> {
+        ServerPlayNetworking.registerGlobalReceiver(KrepapiKeyActionC2SPayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
             for (KeyActionListener listener : KEY_ACTION_LISTENERS) {
                 try {
@@ -177,7 +178,7 @@ public final class KrepapiFabricServerNetworking {
             }
         });
 
-        ServerPlayNetworking.registerGlobalReceiver(KrepapiRawKeyC2SPayload.ID, (payload, context) -> {
+        ServerPlayNetworking.registerGlobalReceiver(KrepapiRawKeyC2SPayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
             for (RawKeyListener listener : RAW_KEY_LISTENERS) {
                 try {
@@ -188,7 +189,7 @@ public final class KrepapiFabricServerNetworking {
             }
         });
 
-        ServerPlayNetworking.registerGlobalReceiver(KrepapiMouseActionC2SPayload.ID, (payload, context) -> {
+        ServerPlayNetworking.registerGlobalReceiver(KrepapiMouseActionC2SPayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
             for (MouseActionListener listener : MOUSE_ACTION_LISTENERS) {
                 try {
@@ -202,7 +203,7 @@ public final class KrepapiFabricServerNetworking {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayer player = handler.player;
             long nonce = server.overworld().getRandom().nextLong();
-            byte flags = settings.requireClientOnDedicatedServer && server.isDedicated()
+            byte flags = settings.requireClientOnDedicatedServer && server instanceof DedicatedServer
                     ? ProtocolMessages.HELLO_FLAG_REQUIRE_RESPONSE
                     : 0;
             String cfg = settings.minimumModVersion;

@@ -10,7 +10,7 @@ import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.input.KeyEvent;
 import net.shik.krepapi.api.KrepapiKeyEvent;
 import net.shik.krepapi.api.KrepapiKeyListener;
 import net.shik.krepapi.protocol.ProtocolMessages;
@@ -20,7 +20,7 @@ import net.shik.krepapi.protocol.ProtocolMessages;
  */
 public final class KrepapiKeyPipeline {
     private static final List<RegisteredListener> LISTENERS = new CopyOnWriteArrayList<>();
-    /** {@code actionId}s with {@code overrideVanilla}; matched live via {@link KeyMapping#matchesKey(KeyInput)}. */
+    /** {@code actionId}s with {@code overrideVanilla}; matched live via {@link KeyMapping#matches(KeyEvent)}. */
     private static final List<String> SERVER_OVERRIDE_ACTION_IDS = new CopyOnWriteArrayList<>();
     private static final Set<Integer> OVERRIDE_HELD_KEYS = new HashSet<>();
 
@@ -55,7 +55,7 @@ public final class KrepapiKeyPipeline {
         OVERRIDE_HELD_KEYS.clear();
     }
 
-    public static boolean dispatch(Minecraft client, KeyInput input, int glfwAction) {
+    public static boolean dispatch(Minecraft client, KeyEvent input, int glfwAction) {
         int key = input.key();
         int scancode = input.scancode();
         int modifiers = input.modifiers();
@@ -79,11 +79,11 @@ public final class KrepapiKeyPipeline {
         return consume;
     }
 
-    private static boolean shouldConsumeForServerBinding(KeyInput input, int action) {
+    private static boolean shouldConsumeForServerBinding(KeyEvent input, int action) {
         int key = input.key();
         for (String actionId : SERVER_OVERRIDE_ACTION_IDS) {
             KeyMapping kb = ServerBindingManager.getKeyMapping(actionId);
-            if (kb == null || !kb.matchesKey(input)) {
+            if (kb == null || !kb.matches(input)) {
                 continue;
             }
             if (action == GLFW.GLFW_PRESS) {

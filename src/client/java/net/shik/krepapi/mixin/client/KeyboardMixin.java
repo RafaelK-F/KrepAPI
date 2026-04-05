@@ -7,7 +7,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.input.KeyEvent;
 import net.shik.krepapi.client.KrepapiKeyPipeline;
 
 @Mixin(KeyboardHandler.class)
@@ -19,7 +19,7 @@ public class KeyboardMixin {
         if (client.player == null && client.screen == null) {
             return;
         }
-        KeyInput input = new KeyInput(key, scancode, modifiers);
+        KeyEvent input = new KeyEvent(key, scancode, modifiers);
         if (KrepapiKeyPipeline.dispatch(client, input, action)) {
             ci.cancel();
         }

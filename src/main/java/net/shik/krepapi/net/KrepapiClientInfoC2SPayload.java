@@ -1,30 +1,31 @@
 package net.shik.krepapi.net;
 
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 import net.shik.krepapi.protocol.KrepapiChannels;
 
-public record KrepapiClientInfoC2SPayload(int protocolVersion, String modVersion, int capabilities, long challengeNonce) implements CustomPayload {
-    public static final CustomPayload.Id<KrepapiClientInfoC2SPayload> ID = CustomPayload.id(KrepapiChannels.C2S_CLIENT_INFO);
+public record KrepapiClientInfoC2SPayload(int protocolVersion, String modVersion, int capabilities, long challengeNonce) implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<KrepapiClientInfoC2SPayload> TYPE =
+            new CustomPacketPayload.Type<>(Identifier.parse(KrepapiChannels.C2S_CLIENT_INFO));
 
-    public static final PacketCodec<RegistryByteBuf, KrepapiClientInfoC2SPayload> CODEC = PacketCodec.ofStatic(
-            (buf, payload) -> {
-                buf.writeVarInt(payload.protocolVersion());
-                buf.writeString(payload.modVersion());
-                buf.writeVarInt(payload.capabilities());
-                buf.writeLong(payload.challengeNonce());
-            },
-            buf -> new KrepapiClientInfoC2SPayload(
-                    buf.readVarInt(),
-                    buf.readString(),
-                    buf.readVarInt(),
-                    buf.readLong()
-            )
-    );
+    public static final StreamCodec<RegistryFriendlyByteBuf, KrepapiClientInfoC2SPayload> CODEC =
+            CustomPacketPayload.codec(KrepapiClientInfoC2SPayload::write, KrepapiClientInfoC2SPayload::new);
+
+    public KrepapiClientInfoC2SPayload(RegistryFriendlyByteBuf buf) {
+        this(buf.readVarInt(), buf.readUtf(), buf.readVarInt(), buf.readLong());
+    }
+
+    public void write(RegistryFriendlyByteBuf buf) {
+        buf.writeVarInt(protocolVersion());
+        buf.writeUtf(modVersion());
+        buf.writeVarInt(capabilities());
+        buf.writeLong(challengeNonce());
+    }
 
     @Override
-    public Id<? extends CustomPayload> getId() {
-        return ID;
+    public Type<KrepapiClientInfoC2SPayload> type() {
+        return TYPE;
     }
 }

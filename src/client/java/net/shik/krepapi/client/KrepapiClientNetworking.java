@@ -19,7 +19,7 @@ public final class KrepapiClientNetworking {
     }
 
     public static void register() {
-        ClientPlayNetworking.registerGlobalReceiver(KrepapiHelloS2CPayload.ID, (payload, context) -> {
+        ClientPlayNetworking.registerGlobalReceiver(KrepapiHelloS2CPayload.TYPE, (payload, context) -> {
             String modVersion = FabricLoader.getInstance()
                     .getModContainer("krepapi")
                     .map(c -> c.getMetadata().getVersion().getFriendlyString())
@@ -37,22 +37,22 @@ public final class KrepapiClientNetworking {
             ));
         });
 
-        ClientPlayNetworking.registerGlobalReceiver(KrepapiBindingsS2CPayload.ID, (payload, context) -> {
+        ClientPlayNetworking.registerGlobalReceiver(KrepapiBindingsS2CPayload.TYPE, (payload, context) -> {
             Minecraft client = context.client();
             client.execute(() -> ServerBindingManager.applyBindings(client, payload.entries()));
         });
 
-        ClientPlayNetworking.registerGlobalReceiver(KrepapiRawCaptureS2CPayload.ID, (payload, context) -> {
+        ClientPlayNetworking.registerGlobalReceiver(KrepapiRawCaptureS2CPayload.TYPE, (payload, context) -> {
             Minecraft client = context.client();
             client.execute(() -> RawCaptureState.apply(payload.config()));
         });
 
-        ClientPlayNetworking.registerGlobalReceiver(KrepapiInterceptKeysS2CPayload.ID, (payload, context) -> {
+        ClientPlayNetworking.registerGlobalReceiver(KrepapiInterceptKeysS2CPayload.TYPE, (payload, context) -> {
             Minecraft client = context.client();
             client.execute(() -> InterceptKeyState.apply(new ProtocolMessages.InterceptKeysSync(payload.entries())));
         });
 
-        ClientPlayNetworking.registerGlobalReceiver(KrepapiMouseCaptureS2CPayload.ID, (payload, context) -> {
+        ClientPlayNetworking.registerGlobalReceiver(KrepapiMouseCaptureS2CPayload.TYPE, (payload, context) -> {
             Minecraft client = context.client();
             client.execute(() -> MouseCaptureState.apply(payload.config()));
         });

@@ -53,8 +53,9 @@ public final class MouseCaptureState {
             int sw = client.getWindow().getGuiScaledWidth();
             int sh = client.getWindow().getGuiScaledHeight();
             if (sw > 0 && sh > 0) {
-                cx = (float) (client.mouseHandler.getX() / sw);
-                cy = (float) (client.mouseHandler.getY() / sh);
+                var window = client.getWindow();
+                cx = (float) (client.mouseHandler.getScaledXPos(window) / sw);
+                cy = (float) (client.mouseHandler.getScaledYPos(window) / sh);
                 cx = Math.min(1f, Math.max(0f, cx));
                 cy = Math.min(1f, Math.max(0f, cy));
             }
@@ -94,8 +95,9 @@ public final class MouseCaptureState {
             int sw = client.getWindow().getGuiScaledWidth();
             int sh = client.getWindow().getGuiScaledHeight();
             if (sw > 0 && sh > 0) {
-                cx = (float) (client.mouseHandler.getX() / sw);
-                cy = (float) (client.mouseHandler.getY() / sh);
+                var window = client.getWindow();
+                cx = (float) (client.mouseHandler.getScaledXPos(window) / sw);
+                cy = (float) (client.mouseHandler.getScaledYPos(window) / sh);
                 cx = Math.min(1f, Math.max(0f, cx));
                 cy = Math.min(1f, Math.max(0f, cy));
             }
