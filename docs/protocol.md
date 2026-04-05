@@ -11,21 +11,86 @@ Binary layout is implemented in [`ProtocolMessages`](https://github.com/RafaelK-
 
 ### Build requirement expressions (Paper / Fabric server)
 
-Server-side `minimum-mod-version` (Paper) and `KrepapiFabricServerSettings.minimumModVersion` (Fabric), plus plugin/mod registrations, are parsed as [`KrepapiVersionRequirement`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiVersionRequirement.java) strings. The client must satisfy **every** requirement (intersection). Invalid specs are rejected at plugin enable / join (Paper) or logged / join (Fabric).
+Server-side strings are parsed by [`KrepapiVersionRequirement`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiVersionRequirement.java). Evaluation is **logical AND** over:
 
-| Syntax | Meaning |
-| --- | --- |
-| `X.Y.Z` (three numeric parts, no prefix) | **Minimum** build: client `>= X.Y.Z` (backward compatible with older configs). |
-| `X.Y.Z>` | Same as bare `X.Y.Z` (explicit floor). |
-| `=X.Y.Z` | **Exact** build only (needed because bare `X.Y.Z` remains a floor). |
-| `<X.Y.Z` | Client must be **strictly less** than `X.Y.Z` (SemVer order, including prerelease). |
-| `X.Y.x` or `X.Y.*` | **Minor line**: client must match that `major.minor` (any patch). |
-| `X.Y` (two numeric parts) | Same as `X.Y.x` (not the same as parsing `X.Y` as `X.Y.0` in `KrepapiBuildVersion` alone—this form is only for requirements). |
-| `X.x.Z` / `X.*.Z` | **Invalid** (wildcard in the middle). |
+1. Paper `config.yml` → `minimum-mod-version` (if non-blank).
+2. Every Paper `versionGate(plugin).requireMinimumBuildVersion*(…)` registration.
+3. On Fabric: `KrepapiFabricServerNetworking.settings.minimumModVersion` plus every `registerMinimumBuildVersion*` entry.
 
-Servers compute a **summary** for `s2c_hello.minModVersion`: if every requirement is a minimum (`>=`), the field is the **highest** bound (same idea as the old “effective minimum”); otherwise it is the specs joined with `"; "`. The field is informational—the authoritative check is on `c2s_client_info.modVersion` after join.
+The client’s `c2s_client_info.modVersion` (from `fabric.mod.json` / Loader) must satisfy **all** parsed requirements. If any spec is invalid, Paper disables the plugin on enable (config) or kicks on join (bad combined set); Fabric logs invalid defaults at `register()` and kicks on join if the combined set does not parse.
 
-Shared helpers: [`KrepapiVersionPolicy`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiVersionPolicy.java) (intersection, kick messaging), [`KrepapiKickReasons`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiKickReasons.java).
+#### Syntax reference
+
+| Syntax | Meaning | Notes |
+| --- | --- | --- |
+| `X.Y.Z` | **Minimum** (`>=`): client build must be **≥** this version in SemVer order. | Backward compatible with pre–requirement-syntax configs. |
+| `X.Y.Z>` | Same as bare `X.Y.Z`. | Explicit “floor” spelling only. |
+| `=X.Y.Z` | **Exact** match only. | Use when bare `X.Y.Z` would wrongly mean ≥ (e.g. pin `=1.1.0`). |
+| `<X.Y.Z` | Client must be **strictly &lt;** `X.Y.Z`. | Useful for “legacy only” ceilings (often combined with a minor line). |
+| `X.Y.x` or `X.Y.*` | **Minor line**: `major.minor` fixed, **any** patch. | Case-insensitive `x`; `*` same meaning. |
+| `X.Y` (two numeric segments) | Same as `X.Y.x`. | **Not** the same as `KrepapiBuildVersion` treating `1.2` as `1.2.0` in other contexts—here it is **only** the minor line. |
+| `X.x.Z` / `X.*.Z` | **Invalid** | Parse error; wildcards only allowed as the **third** segment (patch). |
+
+Optional leading `v` / `V` (before a digit) and `+build` stripping follow [`KrepapiBuildVersion.tryParse`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiBuildVersion.java). Prereleases participate in order for `=`, `<`, and `>=` (e.g. `1.0.0-alpha` &lt; `1.0.0`). Family patterns (`X.Y.x`, two-part `X.Y`) **must not** carry `-prerelease` or `+build` on the pattern itself.
+
+#### Examples (single requirement)
+
+Requirement | Client `modVersion` | Allowed? |
+| --- | --- | --- |
+| `1.2.0` | `1.2.0`, `1.2.1`, `2.0.0` | yes |
+| `1.2.0` | `1.1.9` | no (too old) |
+| `=1.2.0` | `1.2.0` | yes |
+| `=1.2.0` | `1.2.1` | no |
+| `<1.2.0` | `1.1.9` | yes |
+| `<1.2.0` | `1.2.0` | no |
+| `1.1.x` | `1.1.0`, `1.1.99` | yes |
+| `1.1.x` | `1.2.0` | no (wrong minor line) |
+| `1.1` | `1.1.3` | yes (same as `1.1.x`) |
+
+#### Combining requirements (intersection)
+
+Each line is **AND**. The client must pass **every** row.
+
+**Example A — only floors (old behaviour):** config `1.1.0`, plugin A requires `1.2.0` → effective need **≥ 1.2.0**. `s2c_hello.minModVersion` summary is **`1.2.0`** (highest floor).
+
+**Example B — mixed:** config `1.1.x`, plugin requires `1.2.0` → **no** client can satisfy both (1.1.* is never ≥ 1.2.0). Players are kicked; fix the config or drop the plugin constraint.
+
+**Example C — two constraints:** config `minimum-mod-version: "1.0.0"` and another plugin calls `versionGate(this).requireMinimumBuildVersion("<2.0.0")`. Intersection allows `1.9.9` but not `0.9.0` (fails floor) or `2.0.0` (fails ceiling). On Fabric, use `settings.minimumModVersion` plus `registerMinimumBuildVersion` the same way.
+
+#### `s2c_hello.minModVersion` summary
+
+Not necessarily a single SemVer: if **all** requirements parse as minimum floors (`>=`), the summary is the **highest** bound (canonical string). Otherwise the summary is all specs joined with **`"; "`** (informational). The **authoritative** decision is always the server’s check when it receives `c2s_client_info`.
+
+#### Using the `:protocol` module in Java
+
+Hand-rolled servers or tests can reuse the same rules:
+
+```java
+import java.util.List;
+import net.shik.krepapi.protocol.KrepapiVersionPolicy;
+import net.shik.krepapi.protocol.KrepapiVersionRequirement;
+
+// Parse one expression (throws IllegalArgumentException if invalid)
+KrepapiVersionRequirement req = KrepapiVersionRequirement.parse("1.1.x");
+boolean ok = req.allows(clientModVersionString);
+
+// Config + plugin constraints (same semantics as Paper/Fabric)
+String configMin = "1.2.0";
+List<KrepapiVersionPolicy.Constraint> plugins = List.of(
+        KrepapiVersionPolicy.Constraint.feature("emotes", "1.3.0"));
+
+KrepapiVersionPolicy.validateRequirements(configMin, plugins); // throws if any spec invalid
+
+if (!KrepapiVersionPolicy.satisfiesAll(clientModVersionString, configMin, plugins)) {
+    var failure = KrepapiVersionPolicy.firstVersionCheckFailure(clientModVersionString, configMin, plugins);
+    String kick = net.shik.krepapi.protocol.KrepapiKickReasons.forVersionCheckFailure(failure);
+    // disconnect with kick
+}
+
+String helloSummary = KrepapiVersionPolicy.effectiveMinimum(configMin, plugins);
+```
+
+Shared helpers: [`KrepapiVersionPolicy`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiVersionPolicy.java), [`KrepapiKickReasons`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiKickReasons.java).
 
 ## Channels (play phase)
 
@@ -71,7 +136,7 @@ Encoded `s2c_bindings` is rejected if the computed size exceeds a large internal
 | --- | --- |
 | protocolVersion | varint |
 | flags | byte (`HELLO_FLAG_REQUIRE_RESPONSE = 1`) |
-| minModVersion | UTF-8 (minimum required KrepAPI client build version, SemVer) |
+| minModVersion | UTF-8 (**requirement summary** — highest floor if all constraints are `>=`, else `"; "`-joined specs; see **Build requirement expressions** earlier in this doc) |
 | challengeNonce | int64 |
 
 ## `c2s_client_info`
@@ -197,7 +262,16 @@ Unknown `kind` values are rejected on decode.
 
 ## Kick reasons (suggested text)
 
-See [`KrepapiKickReasons`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiKickReasons.java).
+See [`KrepapiKickReasons`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiKickReasons.java). Reference implementations map [`KrepapiVersionPolicy.VersionCheckFailure`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiVersionPolicy.java) through [`forVersionCheckFailure`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiKickReasons.java):
+
+| Failure reason | Typical cause |
+| --- | --- |
+| `TOO_LOW` | Client below a `>=` / bare floor (or below a constraint that implies a minimum). |
+| `TOO_HIGH` | Client **≥** a version bound that was expressed as `<X.Y.Z`. |
+| `EXACT_MISMATCH` | Client ≠ `=X.Y.Z`. |
+| `WRONG_FAMILY` | Client not on required `X.Y.x` / `X.Y` line (including “too new” on that line, e.g. `1.2.0` vs `1.1.x`). |
+
+Other constants: `PROTOCOL_MISMATCH`, `HANDSHAKE_TIMEOUT`, `MISSING_CLIENT` (when applicable).
 
 ## Paper vs Fabric
 

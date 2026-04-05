@@ -48,22 +48,86 @@ Fabric server: [`KrepapiFabricServerNetworking.sendMouseCaptureConfig`](https://
 
 ## Handshake
 
-On `s2c_hello`, the client automatically sends `c2s_client_info` with:
+On `s2c_hello`, the Fabric client automatically sends `c2s_client_info` with:
 
-* `KrepapiProtocolVersion.CURRENT`
-* **Build version** — the KrepAPI mod version string from `fabric.mod.json` / Gradle (use [SemVer](https://semver.org/) for releases, e.g. `1.2.0`, so server comparisons stay predictable)
-* Capabilities: `KEY_OVERRIDE | RAW_KEYS | SERVER_RAW_CAPTURE | INTERCEPT_KEYS | SERVER_MOUSE_CAPTURE`
+| Field | Source |
+| --- | --- |
+| `protocolVersion` | [`KrepapiProtocolVersion.CURRENT`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiProtocolVersion.java) — must match the server or you are kicked (`PROTOCOL_MISMATCH`). |
+| `modVersion` | Loader metadata for mod id `krepapi` (`fabric.mod.json` / Gradle `version`). Use [SemVer](https://semver.org/) for releases so server requirement expressions behave predictably. |
+| `capabilities` | Bitwise OR of [`KrepapiCapabilities`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiCapabilities.java) the client implements. |
+| `challengeNonce` | Echo of the server hello. |
+
+Typical capability mask in the reference client:
+
+`KEY_OVERRIDE | RAW_KEYS | SERVER_RAW_CAPTURE | INTERCEPT_KEYS | SERVER_MOUSE_CAPTURE`
+
+The client **does not** interpret `minModVersion` for logic—it only displays or ignores it. The server always decides from `modVersion`.
 
 ## Fabric dedicated server
 
-[`KrepapiFabricServerNetworking`](https://github.com/RafaelK-F/KrepAPI/blob/main/fabric-1-21/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java) mirrors the Paper handshake. Set `KrepapiFabricServerNetworking.settings.requireClientOnDedicatedServer = true` from your mod if you want the same kick behaviour as Paper's `require-krepapi` (default is `false` for LAN / integrated server friendliness).
+[`KrepapiFabricServerNetworking`](https://github.com/RafaelK-F/KrepAPI/blob/main/fabric-1-21/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java) mirrors the Paper handshake. Configure [`KrepapiFabricServerSettings`](https://github.com/RafaelK-F/KrepAPI/blob/main/fabric-1-21/src/main/java/net/shik/krepapi/server/KrepapiFabricServerSettings.java) on `KrepapiFabricServerNetworking.settings`.
 
-**Client build requirements** default via `KrepapiFabricServerNetworking.settings.minimumModVersion` using the same expression syntax as Paper (`>=` floor, `=`, `<`, `X.Y.x`, etc.; see [`docs/protocol.md`](protocol.md)). You can add constraints from your mod initializer:
+### Settings (dedicated / LAN)
 
-* `registerMinimumBuildVersion(String modId, String semver)` — global requirement attributed to your mod id (any valid expression, not only a floor)
-* `registerMinimumBuildVersionForFeature(String modId, String featureId, String semver)` — same, with a feature label for kick text
-* `clearBuildRequirementsForMod(String modId)` — drop all requirements registered under that mod id
+| Field | Role |
+| --- | --- |
+| `requireClientOnDedicatedServer` | If `true` on a **dedicated** server, hello requires `c2s_client_info` (like Paper `require-krepapi`). Default `false` so LAN / integrated servers stay permissive. |
+| `minimumModVersion` | Same expression grammar as Paper `minimum-mod-version` (see [`docs/protocol.md`](protocol.md)). |
+| `handshakeTimeoutTicks` | Ticks before disconnect if no client info when required. |
 
-The client must satisfy **every** requirement: `settings.minimumModVersion` **and** all registrations (intersection), matching Paper `config.yml` + `versionGate`. The `s2c_hello.minModVersion` summary follows the same rules as on Paper (highest floor if all are `>=`, otherwise joined specs).
+### Registering extra constraints from your mod
 
-**Migration:** Older snippets that assigned `KrepapiFabricServerNetworking.minimumModVersion` (or the other two public `volatile` fields) should use the single [`KrepapiFabricServerSettings`](https://github.com/RafaelK-F/KrepAPI/blob/main/fabric-1-21/src/main/java/net/shik/krepapi/server/KrepapiFabricServerSettings.java) instance `KrepapiFabricServerNetworking.settings` instead.
+Declare a load-order dependency so `krepapi` is present when your server logic runs:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "mymod",
+  "version": "1.0.0",
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.4",
+    "krepapi": "*"
+  }
+}
+```
+
+Call from your **`ModInitializer`** (or a dedicated entrypoint). Constraints can be registered before or after `KrepapiFabricServerNetworking.register()` in another mod; the join handler is installed when the KrepAPI mod initializes.
+
+```java
+import net.fabricmc.api.ModInitializer;
+import net.shik.krepapi.server.KrepapiFabricServerNetworking;
+
+public class MyMod implements ModInitializer {
+
+    public static final String MOD_ID = "mymod";
+
+    @Override
+    public void onInitialize() {
+        // Optional: tighten default floor for everyone on this dedicated pack
+        // KrepapiFabricServerNetworking.settings.minimumModVersion = "1.2.0";
+
+        // Require >= 1.3.0 for features this mod adds on top of KrepAPI
+        KrepapiFabricServerNetworking.registerMinimumBuildVersion(MOD_ID, "1.3.0");
+        KrepapiFabricServerNetworking.registerMinimumBuildVersionForFeature(
+                MOD_ID, "my_emotes", "1.3.0");
+
+        // Later, e.g. when unloading an optional module:
+        // KrepapiFabricServerNetworking.clearBuildRequirementsForMod(MOD_ID);
+    }
+}
+```
+
+* **Invalid expression** → `IllegalArgumentException` at registration time.
+* `registerMinimumBuildVersion*` parses immediately; invalid strings fail fast.
+* The joining player must satisfy **`settings.minimumModVersion` and every registration** (AND), same as Paper config + `versionGate`. See **Combining requirements** in [`protocol.md`](protocol.md).
+
+### Pitfall: two-part requirement strings
+
+A value like `"1.2"` means the **minor line** `1.2.*`, **not** “shorthand for `1.2.0` minimum”. For a floor use three parts: `"1.2.0"` or `"1.2.0>"`.
+
+### `s2c_hello.minModVersion` summary
+
+Matches Paper: if all constraints are plain floors, the summary is the **highest** floor; otherwise specs are joined with **`"; "`**.
+
+**Migration:** Older snippets that assigned `KrepapiFabricServerNetworking.minimumModVersion` (or other removed `volatile` fields) must use `KrepapiFabricServerNetworking.settings` (`KrepapiFabricServerSettings`).
