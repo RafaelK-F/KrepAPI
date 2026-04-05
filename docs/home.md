@@ -1,6 +1,6 @@
 # KrepAPI
 
-Fabric client mod (Minecraft **26.1.x**, Mojang official mappings via Loom) plus a shared binary protocol for **server-driven key bindings**, **raw key and mouse events** with optional **vanilla blocking**, and an optional **handshake** so Paper or Fabric dedicated servers can require the mod. Versioning is **two-tier**: a wire **protocol version** (packet layout) and a SemVer **build version** for the client mod, with configurable and API-driven minimums on the server.
+Fabric client mod for **Minecraft 1.21.4–1.21.11** (this repo’s default build targets **1.21.11** with Mojang mappings via Loom) plus a shared binary protocol for **server-driven key bindings**, **raw key and mouse events** with optional **vanilla blocking**, and an optional **handshake** so Paper or Fabric dedicated servers can require the mod. **Minecraft 26.x** needs a **separate** mod JAR built against 26.x; it is not the same file as the 1.21.x line. Versioning is **two-tier**: a wire **protocol version** (packet layout) and a SemVer **build version** for the client mod, with configurable and API-driven minimums on the server.
 
 ---
 

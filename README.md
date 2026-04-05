@@ -2,7 +2,14 @@
 
 [![KrepAPI-RoadMapBanner](https://cdn.modrinth.com/data/cached_images/9fd6e447379752d78e9e062e1dc40d43bba968ec_0.webp)](https://github.com/RafaelK-F/KrepAPI/wiki/Roadmap)
 
-Fabric client bridge for servers: custom key bindings synced from the host, optional raw-key hooks for addons, and a handshake so Paper/Fabric servers can require this mod. Install only on servers that use KrepAPI. Needs Fabric API. Targets **Minecraft 26.1.x** with **Java 25** (Mojang mappings via Fabric Loom; no Yarn).
+Fabric client bridge for servers: custom key bindings synced from the host, optional raw-key hooks for addons, and a handshake so Paper/Fabric servers can require this mod. Install only on servers that use KrepAPI. Needs Fabric API.
+
+**Supported Minecraft versions (this repository build):** **`gradlew build` produces two Fabric JARs** (same mod id `krepapi`, same SemVer from `gradle.properties`):
+
+- **1.21.4–1.21.11** → **`fabric-1-21`** → `KrepAPI-mc1.21-*.jar` (Java **21**, `fabric-loom-remap`, Mojang mappings).
+- **26.1–26.1.1** → **`fabric-26-1`** → `KrepAPI-mc26.1-*.jar` (Java **25**, `fabric-loom` 1.15, unobfuscated game).
+
+Upload **both** files on Modrinth (or your host) and attach the matching game versions to each — they are **not** interchangeable.
 
 The server never touches GLFW directly; the client does not expose raw input without a server opt-in.
 
@@ -28,7 +35,9 @@ There are two layers: a wire **protocol version** (packet layout, `KrepapiProtoc
 | Module | Role |
 |--------|------|
 | `:protocol` | Channel ids, varint/UTF helpers, `ProtocolMessages` encode/decode (no Minecraft dependency). |
-| Root (`fabric-loom`) | Fabric client + common code: payloads, server networking, mixins, `KrepApi`. |
+| `:fabric-1-21` | Fabric mod for **1.21.x** (payloads, mixins, client/server networking). |
+| `:fabric-26-1` | Fabric mod for **26.1.x** (same features; 26.1 Fabric API / Loom wiring). |
+| (root) | Aggregator only — no game sources here. |
 | `:paper-plugin` | Reference Paper plugin (plugin messages + `config.yml`). |
 
 ## Build

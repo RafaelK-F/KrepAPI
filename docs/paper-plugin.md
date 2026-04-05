@@ -17,7 +17,7 @@ Build:
 ./gradlew :paper-plugin:jar
 ```
 
-Install the resulting `KrepAPI-Paper-*.jar` on Paper **26.1.x** (same game version as the Fabric mod). Match the Minecraft protocol version to your clients.
+Install the resulting `KrepAPI-Paper-*.jar` on Paper **1.21.4–1.21.11** (match the `paper-api` / `api-version` you built against — this repo defaults to **1.21.11**). For **Minecraft 26.x** servers, use a Paper plugin JAR compiled against the 26.x `paper-api`, not the 1.21.x one.
 
 ## Using only the protocol JAR
 
@@ -28,7 +28,7 @@ Other plugins can depend on the `:protocol` Gradle project (or copy the `net.shi
 | Key | Default | Description |
 | --- | --- | --- |
 | `require-krepapi` | `true` | Kick after `handshake-timeout-ticks` if no valid `c2s_client_info`. |
-| `minimum-mod-version` | `1.1.1` | SemVer floor for the client KrepAPI build; combined with API registrations (see below). Use numeric cores (e.g. `1.10.0`); `1.9` vs `1.10` compare numerically when both parse. Leading `v` is accepted (e.g. `v1.1.1`). If a value cannot be parsed, ordering falls back to lexicographic string compare only when both sides are unparsable. |
+| `minimum-mod-version` | `1.2.0` | SemVer floor for the client KrepAPI build; combined with API registrations (see below). Use numeric cores (e.g. `1.10.0`); `1.9` vs `1.10` compare numerically when both parse. Leading `v` is accepted (e.g. `v1.2.0`). If a value cannot be parsed, ordering falls back to lexicographic string compare only when both sides are unparsable. |
 | `handshake-timeout-ticks` | `200` | Timeout (20 ticks = 1 s). |
 | `send-hello-on-join` | `true` | Send `s2c_hello` on join. |
 | `example-bindings` | `true` | Push a sample binding after join. |
@@ -42,7 +42,7 @@ Depend on the KrepAPI Paper artifact and obtain [`KrepapiPaperPlugin`](https://g
 public void onEnable() {
     KrepapiPaperPlugin krepapi = (KrepapiPaperPlugin) getServer().getPluginManager().getPlugin("KrepAPI-Paper");
     if (krepapi != null) {
-        krepapi.versionGate(this).requireMinimumBuildVersion("1.1.1");
+        krepapi.versionGate(this).requireMinimumBuildVersion("1.2.0");
         krepapi.versionGate(this).requireMinimumBuildVersionForFeature("my_emotes", "1.3.0");
     }
 }
