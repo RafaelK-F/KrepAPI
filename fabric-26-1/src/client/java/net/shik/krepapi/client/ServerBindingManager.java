@@ -1,8 +1,15 @@
 package net.shik.krepapi.client;
 
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
@@ -43,6 +50,9 @@ public final class ServerBindingManager {
 
     public static void clear(Minecraft client) {
         KrepapiKeyPipeline.clearServerOverrides();
+        if (client != null) {
+            unregisterServerKeyMappings(client, ACTIVE.values());
+        }
         ACTIVE.clear();
         PREV_HELD.clear();
     }
@@ -72,5 +82,62 @@ public final class ServerBindingManager {
 
     private static String sanitize(String actionId) {
         return actionId.replaceAll("[^a-z0-9._-]", "_");
+    }
+
+    /**
+     * Drops server {@link KeyMapping}s from the controls list and from the Fabric modded registry so reconnect /
+     * rebinding cannot leave duplicates or stale instances behind. Fabric exposes no public unregister API.
+     */
+    private static void unregisterServerKeyMappings(Minecraft client, Collection<KeyMapping> mappings) {
+        if (mappings.isEmpty()) {
+            return;
+        }
+        Set<KeyMapping> toRemove = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (KeyMapping km : mappings) {
+            if (km != null) {
+                toRemove.add(km);
+            }
+        }
+        if (toRemove.isEmpty()) {
+            return;
+        }
+        if (client.options != null) {
+            KeyMapping[] keys = client.options.keyMappings;
+            List<KeyMapping> kept = new ArrayList<>(keys.length);
+            for (KeyMapping k : keys) {
+                if (!toRemove.contains(k)) {
+                    kept.add(k);
+                }
+            }
+            if (kept.size() != keys.length) {
+                client.options.keyMappings = kept.toArray(new KeyMapping[0]);
+            }
+        }
+        removeFromFabricModdedRegistry(toRemove);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void removeFromFabricModdedRegistry(Set<KeyMapping> toRemove) {
+        String[] implClasses = {
+                "net.fabricmc.fabric.impl.client.keymapping.KeyMappingRegistryImpl",
+                "net.fabricmc.fabric.impl.client.keybinding.KeyBindingRegistryImpl",
+        };
+        for (String className : implClasses) {
+            try {
+                Class<?> clazz = Class.forName(className);
+                Field field = clazz.getDeclaredField("MODDED_KEY_BINDINGS");
+                field.setAccessible(true);
+                List<KeyMapping> modded = (List<KeyMapping>) field.get(null);
+                for (Iterator<KeyMapping> it = modded.iterator(); it.hasNext(); ) {
+                    if (toRemove.contains(it.next())) {
+                        it.remove();
+                    }
+                }
+            } catch (ClassNotFoundException | NoSuchFieldException ignored) {
+                // Wrong Fabric module layout for this game version; try the other impl name.
+            } catch (ReflectiveOperationException | ClassCastException ignored) {
+                // Best-effort: options array was still sanitized above.
+            }
+        }
     }
 }
