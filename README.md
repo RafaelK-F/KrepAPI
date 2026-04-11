@@ -42,6 +42,8 @@ There are two layers: a wire **protocol version** (packet layout, `KrepapiProtoc
 | (root) | Aggregator only — no game sources here. |
 | `:paper-plugin` | Reference Paper plugin (plugin messages + `config.yml`). |
 
+Fabric gameplay code lives **only** in `fabric-1-21/` and `fabric-26-1/` (see `settings.gradle`). Keep them in sync when changing behaviour that applies to both Minecraft lines; do not add a second parallel tree.
+
 ## Build
 
 ```bash
