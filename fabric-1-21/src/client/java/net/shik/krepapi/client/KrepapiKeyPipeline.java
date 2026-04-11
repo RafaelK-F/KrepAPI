@@ -22,7 +22,8 @@ public final class KrepapiKeyPipeline {
     private static final List<RegisteredListener> LISTENERS = new CopyOnWriteArrayList<>();
     /** {@code actionId}s with {@code overrideVanilla}; matched live via {@link KeyMapping#matches(KeyEvent)}. */
     private static final List<String> SERVER_OVERRIDE_ACTION_IDS = new CopyOnWriteArrayList<>();
-    private static final Set<Integer> OVERRIDE_HELD_KEYS = new HashSet<>();
+    /** {@code actionId}s currently held down for {@code overrideVanilla} repeat/release pairing (not raw key codes). */
+    private static final Set<String> OVERRIDE_HELD_ACTION_IDS = new HashSet<>();
 
     private KrepapiKeyPipeline() {
     }
@@ -42,7 +43,7 @@ public final class KrepapiKeyPipeline {
 
     static void setServerOverrideBindings(List<ProtocolMessages.BindingEntry> entries) {
         SERVER_OVERRIDE_ACTION_IDS.clear();
-        OVERRIDE_HELD_KEYS.clear();
+        OVERRIDE_HELD_ACTION_IDS.clear();
         for (ProtocolMessages.BindingEntry e : entries) {
             if (e.overrideVanilla()) {
                 SERVER_OVERRIDE_ACTION_IDS.add(e.actionId());
@@ -52,7 +53,7 @@ public final class KrepapiKeyPipeline {
 
     static void clearServerOverrides() {
         SERVER_OVERRIDE_ACTION_IDS.clear();
-        OVERRIDE_HELD_KEYS.clear();
+        OVERRIDE_HELD_ACTION_IDS.clear();
     }
 
     public static boolean dispatch(Minecraft client, KeyEvent input, int glfwAction) {
@@ -80,22 +81,35 @@ public final class KrepapiKeyPipeline {
     }
 
     private static boolean shouldConsumeForServerBinding(KeyEvent input, int action) {
-        int key = input.key();
-        for (String actionId : SERVER_OVERRIDE_ACTION_IDS) {
-            KeyMapping kb = ServerBindingManager.getKeyMapping(actionId);
-            if (kb == null || !kb.matches(input)) {
-                continue;
+        if (action == GLFW.GLFW_PRESS) {
+            boolean any = false;
+            for (String actionId : SERVER_OVERRIDE_ACTION_IDS) {
+                KeyMapping kb = ServerBindingManager.getKeyMapping(actionId);
+                if (kb != null && kb.matches(input)) {
+                    OVERRIDE_HELD_ACTION_IDS.add(actionId);
+                    any = true;
+                }
             }
-            if (action == GLFW.GLFW_PRESS) {
-                OVERRIDE_HELD_KEYS.add(key);
-                return true;
+            return any;
+        }
+        if (action == GLFW.GLFW_REPEAT) {
+            for (String actionId : SERVER_OVERRIDE_ACTION_IDS) {
+                KeyMapping kb = ServerBindingManager.getKeyMapping(actionId);
+                if (kb != null && kb.matches(input) && OVERRIDE_HELD_ACTION_IDS.contains(actionId)) {
+                    return true;
+                }
             }
-            if (action == GLFW.GLFW_REPEAT && OVERRIDE_HELD_KEYS.contains(key)) {
-                return true;
+            return false;
+        }
+        if (action == GLFW.GLFW_RELEASE) {
+            boolean any = false;
+            for (String actionId : SERVER_OVERRIDE_ACTION_IDS) {
+                KeyMapping kb = ServerBindingManager.getKeyMapping(actionId);
+                if (kb != null && kb.matches(input) && OVERRIDE_HELD_ACTION_IDS.remove(actionId)) {
+                    any = true;
+                }
             }
-            if (action == GLFW.GLFW_RELEASE && OVERRIDE_HELD_KEYS.remove(key)) {
-                return true;
-            }
+            return any;
         }
         return false;
     }
