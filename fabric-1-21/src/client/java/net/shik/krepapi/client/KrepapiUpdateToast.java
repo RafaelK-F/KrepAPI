@@ -4,13 +4,14 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.toasts.Toast;
 import net.minecraft.client.gui.components.toasts.ToastManager;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public class KrepapiUpdateToast implements Toast {
 
-    private static final ResourceLocation BACKGROUND_SPRITE =
-            ResourceLocation.withDefaultNamespace("toast/advancement");
+    private static final Identifier BACKGROUND_SPRITE =
+            Identifier.withDefaultNamespace("toast/advancement");
     private static final Component TITLE = Component.literal("KrepAPI Update");
     private static final long DISPLAY_TIME_MS = 8000;
 
@@ -33,7 +34,7 @@ public class KrepapiUpdateToast implements Toast {
     public void render(GuiGraphics graphics, Font font, long timer) {
         if (firstRenderTime < 0) firstRenderTime = System.currentTimeMillis();
 
-        graphics.blitSprite(BACKGROUND_SPRITE, 0, 0, width(), height());
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, BACKGROUND_SPRITE, 0, 0, width(), height());
 
         UpdateChecker.UpdateInfo info = UpdateChecker.result;
         String desc = info != null && info.latestVersion() != null

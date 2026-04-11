@@ -3,7 +3,12 @@
   "minVersion": "0.8",
   "package": "net.shik.krepapi.mixin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": [
+  "mixins": [],
+  "client": [
+    "client.KeyboardMixin",
+    "client.MinecraftMixin",
+    "client.MouseMixin",
+    "client.PauseScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

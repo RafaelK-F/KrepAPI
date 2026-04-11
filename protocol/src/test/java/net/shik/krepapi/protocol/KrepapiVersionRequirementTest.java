@@ -19,7 +19,7 @@ class KrepapiVersionRequirementTest {
         assertTrue(a.allows("1.1.0"));
         assertTrue(a.allows("1.1.9"));
         assertTrue(b.allows("1.1.0"));
-        assertFalse(a.allows("1.2.0"));
+        assertFalse(a.allows("1.3.0"));
         assertFalse(a.allows("1.0.9"));
     }
 
@@ -28,7 +28,7 @@ class KrepapiVersionRequirementTest {
         KrepapiVersionRequirement r = KrepapiVersionRequirement.parse("1.1");
         assertTrue(r.allows("1.1.0"));
         assertTrue(r.allows("1.1.99"));
-        assertFalse(r.allows("1.2.0"));
+        assertFalse(r.allows("1.3.0"));
     }
 
     @Test
@@ -39,8 +39,8 @@ class KrepapiVersionRequirementTest {
 
     @Test
     void nakedTripleIsMinimumInclusive() {
-        KrepapiVersionRequirement r = KrepapiVersionRequirement.parse("1.2.0");
-        assertTrue(r.allows("1.2.0"));
+        KrepapiVersionRequirement r = KrepapiVersionRequirement.parse("1.3.0");
+        assertTrue(r.allows("1.3.0"));
         assertTrue(r.allows("2.0.0"));
         assertFalse(r.allows("1.1.9"));
         assertEquals(KrepapiVersionRequirement.Kind.MIN_INCLUSIVE, r.kind());
@@ -48,15 +48,15 @@ class KrepapiVersionRequirementTest {
 
     @Test
     void trailingAngleSameAsMinimum() {
-        KrepapiVersionRequirement r = KrepapiVersionRequirement.parse("1.2.0>");
-        assertTrue(r.allows("1.2.0"));
-        assertEquals("1.2.0", r.minInclusiveBoundSpec());
+        KrepapiVersionRequirement r = KrepapiVersionRequirement.parse("1.3.0>");
+        assertTrue(r.allows("1.3.0"));
+        assertEquals("1.3.0", r.minInclusiveBoundSpec());
     }
 
     @Test
     void exactOnly() {
-        KrepapiVersionRequirement r = KrepapiVersionRequirement.parse("=1.2.0");
-        assertTrue(r.allows("1.2.0"));
+        KrepapiVersionRequirement r = KrepapiVersionRequirement.parse("=1.3.0");
+        assertTrue(r.allows("1.3.0"));
         assertFalse(r.allows("1.2.1"));
         assertFalse(r.allows("1.1.9"));
     }
@@ -66,7 +66,7 @@ class KrepapiVersionRequirementTest {
         KrepapiVersionRequirement r = KrepapiVersionRequirement.parse("<1.1.1");
         assertTrue(r.allows("1.1.0"));
         assertFalse(r.allows("1.1.1"));
-        assertFalse(r.allows("1.2.0"));
+        assertFalse(r.allows("1.3.0"));
     }
 
     @Test
@@ -75,13 +75,13 @@ class KrepapiVersionRequirementTest {
         assertFalse(KrepapiVersionPolicy.satisfiesAll(
                 "1.1.5",
                 "1.1.x",
-                List.of(KrepapiVersionPolicy.Constraint.global("1.2.0"))));
+                List.of(KrepapiVersionPolicy.Constraint.global("1.3.0"))));
     }
 
     @Test
     void firstFailureOrderConfigThenPlugins() {
         KrepapiVersionPolicy.VersionCheckFailure f = KrepapiVersionPolicy.firstVersionCheckFailure(
-                "1.2.0",
+                "1.3.0",
                 "1.1.x",
                 List.of());
         assertNull(f.constraint().featureId());

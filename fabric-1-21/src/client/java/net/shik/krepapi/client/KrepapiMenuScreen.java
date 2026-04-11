@@ -1,208 +1,256 @@
 package net.shik.krepapi.client;
 
+import io.github.notenoughupdates.moulconfig.common.IFontRenderer;
+import io.github.notenoughupdates.moulconfig.common.IMinecraft;
+import io.github.notenoughupdates.moulconfig.common.text.StructuredText;
+import io.github.notenoughupdates.moulconfig.gui.GuiComponent;
+import io.github.notenoughupdates.moulconfig.gui.GuiContext;
+import io.github.notenoughupdates.moulconfig.gui.component.CenterComponent;
+import io.github.notenoughupdates.moulconfig.gui.component.ColumnComponent;
+import io.github.notenoughupdates.moulconfig.gui.component.PanelComponent;
+import io.github.notenoughupdates.moulconfig.gui.component.RowComponent;
+import io.github.notenoughupdates.moulconfig.gui.component.ScrollPanelComponent;
+import io.github.notenoughupdates.moulconfig.gui.component.TextComponent;
+import io.github.notenoughupdates.moulconfig.platform.MoulConfigScreenComponent;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.shik.krepapi.client.ui.KrepapiMenuComponents.ChangelogHeadlineComponent;
+import net.shik.krepapi.client.ui.KrepapiMenuComponents.FullWidthRuleComponent;
+import net.shik.krepapi.client.ui.KrepapiMenuComponents.StatusBadgeComponent;
+import net.shik.krepapi.client.ui.KrepapiMenuComponents.VersionNavRow;
 import org.jetbrains.annotations.Nullable;
 
-public class KrepapiMenuScreen extends Screen {
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
-    private static final int PADDING = 10;
-    private static final int LINE_HEIGHT = 12;
-    private final Screen parent;
-    private Button actionButton;
-    private Button closeButton;
-    private int scrollOffset = 0;
-    private int maxScroll = 0;
+public class KrepapiMenuScreen {
+
+    /** Inner column design width (left + right body panels). */
+    private static final int CONTENT_INNER_WIDTH = 410;
+    private static final int LEFT_PANEL_OUTER = 140;
+    private static final int RIGHT_PANEL_OUTER = 270;
+    private static final int BADGE_WIDTH = 132;
+    private static final int BODY_HEIGHT = 196;
+
+    private static final int LEFT_SCROLL_W = LEFT_PANEL_OUTER - 8;
+    private static final int RIGHT_SCROLL_W = RIGHT_PANEL_OUTER - 8;
+
+    private static String selectedVersion = null;
 
     public static Screen create(@Nullable Screen parent) {
-        return new KrepapiMenuScreen(parent);
-    }
-
-    protected KrepapiMenuScreen(@Nullable Screen parent) {
-        super(Component.literal("KrepAPI"));
-        this.parent = parent;
-    }
-
-    @Override
-    protected void init() {
-        super.init();
-
-        int buttonWidth = 240;
-        int buttonY = this.height - 60;
-
-        actionButton = Button.builder(getActionLabel(), btn -> onActionPressed())
-                .bounds((this.width - buttonWidth) / 2, buttonY, buttonWidth, 20)
-                .build();
-        actionButton.active = isActionActive();
-        this.addRenderableWidget(actionButton);
-
-        closeButton = Button.builder(Component.translatable("gui.back"), btn -> onClose())
-                .bounds((this.width - buttonWidth) / 2, buttonY + 24, buttonWidth, 20)
-                .build();
-        this.addRenderableWidget(closeButton);
-    }
-
-    @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        super.render(graphics, mouseX, mouseY, delta);
-
         UpdateChecker.UpdateInfo info = UpdateChecker.result;
-
-        int y = PADDING;
-        int centerX = this.width / 2;
-
-        graphics.drawCenteredString(this.font, "KrepAPI",
-                centerX, y, 0x55FF55);
-        y += LINE_HEIGHT + 4;
-
-        if (info == null) {
-            graphics.drawCenteredString(this.font, "Update-Info wird geladen...",
-                    centerX, y, 0xAAAAAA);
-        } else {
-            String currentLabel = "Installiert: v" + info.currentVersion();
-            graphics.drawCenteredString(this.font, currentLabel,
-                    centerX, y, 0xFFFFFF);
-            y += LINE_HEIGHT;
-
-            if (info.latestVersion() != null) {
-                String latestLabel = "Neueste: v" + info.latestVersion();
-                int latestColor = info.updateAvailable() ? 0xFFFF55 : 0x55FF55;
-                graphics.drawCenteredString(this.font, latestLabel,
-                        centerX, y, latestColor);
-                y += LINE_HEIGHT;
-
-                if (info.updateAvailable()) {
-                    graphics.drawCenteredString(this.font, "\u26A0 Update verfügbar!",
-                            centerX, y, 0xFFAA00);
+        if (info != null) {
+            boolean known = selectedVersion != null && info.versionList().contains(selectedVersion);
+            if (!known) {
+                if (info.latestVersion() != null) {
+                    selectedVersion = info.latestVersion();
+                } else if (!info.versionList().isEmpty()) {
+                    selectedVersion = info.versionList().get(0);
                 } else {
-                    graphics.drawCenteredString(this.font, "\u2714 Aktuell",
-                            centerX, y, 0x55FF55);
+                    selectedVersion = null;
                 }
-            } else {
-                graphics.drawCenteredString(this.font, "Update-Check fehlgeschlagen",
-                        centerX, y, 0xFF5555);
             }
-            y += LINE_HEIGHT + 8;
-
-            if (UpdateDownloader.downloadError != null) {
-                graphics.drawCenteredString(this.font, "Fehler: " + UpdateDownloader.downloadError,
-                        centerX, y, 0xFF5555);
-                y += LINE_HEIGHT + 4;
-            }
-
-            if (info.changelogMarkdown() != null) {
-                renderChangelog(graphics, info.changelogMarkdown(), PADDING + 10, y,
-                        this.width - PADDING * 2 - 20, this.height - y - 70);
-            }
+        } else {
+            selectedVersion = null;
         }
 
-        updateActionButton();
+        GuiComponent root = buildRoot(parent);
+        GuiContext ctx = new GuiContext(root);
+        return new MoulConfigScreenComponent(Component.literal("KrepAPI"), ctx, parent);
     }
 
-    private void renderChangelog(GuiGraphics graphics, String markdown, int x, int y,
-                                 int maxWidth, int maxHeight) {
-        graphics.enableScissor(x, y, x + maxWidth, y + maxHeight);
-
-        String[] lines = markdown.split("\n");
-        int drawY = y - scrollOffset;
-        int totalHeight = 0;
-
-        for (String line : lines) {
-            int color = 0xCCCCCC;
-            String text = line;
-
-            if (line.startsWith("# ")) {
-                text = line.substring(2);
-                color = 0xFFFF55;
-            } else if (line.startsWith("## ")) {
-                text = line.substring(3);
-                color = 0x55FFFF;
-            } else if (line.startsWith("### ")) {
-                text = line.substring(4);
-                color = 0x55FF55;
-            } else if (line.startsWith("- ")) {
-                text = "  \u2022 " + line.substring(2);
-            } else if (line.startsWith("**") && line.endsWith("**")) {
-                text = line.substring(2, line.length() - 2);
-                color = 0xFFFFFF;
-            }
-
-            var wrappedLines = this.font.split(Component.literal(text), maxWidth);
-            for (var formattedLine : wrappedLines) {
-                if (drawY >= y - LINE_HEIGHT && drawY < y + maxHeight) {
-                    graphics.drawString(this.font, formattedLine, x, drawY, color);
-                }
-                drawY += LINE_HEIGHT;
-                totalHeight += LINE_HEIGHT;
-            }
-        }
-
-        maxScroll = Math.max(0, totalHeight - maxHeight);
-        graphics.disableScissor();
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        scrollOffset = Math.max(0, Math.min(maxScroll, scrollOffset - (int) (verticalAmount * LINE_HEIGHT * 3)));
-        return true;
-    }
-
-    private Component getActionLabel() {
+    private static GuiComponent buildRoot(@Nullable Screen parent) {
+        IFontRenderer font = IMinecraft.INSTANCE.getDefaultFontRenderer();
         UpdateChecker.UpdateInfo info = UpdateChecker.result;
-        if (info == null) {
-            return Component.literal("Update-Info wird geladen...");
-        }
+
+        List<GuiComponent> outerColumn = new ArrayList<>();
+        GuiComponent headerStrip = new PanelComponent(
+                buildTopBar(font, info),
+                3,
+                PanelComponent.DefaultBackgroundRenderer.BUTTON_WHITE);
+        outerColumn.add(headerStrip);
+        outerColumn.add(new FullWidthRuleComponent(font, CONTENT_INNER_WIDTH));
+        outerColumn.add(buildBody(font, info));
+
+        GuiComponent column = new ColumnComponent(outerColumn);
+        return new CenterComponent(
+                new PanelComponent(column, 6, PanelComponent.DefaultBackgroundRenderer.VANILLA));
+    }
+
+    private static GuiComponent buildTopBar(IFontRenderer font, @Nullable UpdateChecker.UpdateInfo info) {
+        // TextComponent.getWidth() adds +4 to suggestedWidth; header row is wrapped in Panel(inset=3).
+        // Keep: innerRowWidth + 2*3 == CONTENT_INNER_WIDTH.
+        int titleSuggested = CONTENT_INNER_WIDTH - BADGE_WIDTH - 4 - 6;
+        int badgeHeight = font.getHeight() + 14;
+
+        TextComponent title = new TextComponent(font, () -> {
+            UpdateChecker.UpdateInfo i = UpdateChecker.result;
+            String ver = displayVersion(i != null ? i.currentVersion() : "?");
+            return StructuredText.of("\u00A7b\u00A7lKrepAPI \u00A77\u00B7 \u00A7a\u00A7l" + ver);
+        }, titleSuggested, TextComponent.TextAlignment.CENTER, false, false);
+
+        StatusBadgeComponent badge = new StatusBadgeComponent(
+                font,
+                BADGE_WIDTH,
+                badgeHeight,
+                KrepapiMenuScreen::onAction,
+                KrepapiMenuScreen::statusLabel);
+
+        return new RowComponent(title, badge);
+    }
+
+    private static StructuredText statusLabel() {
+        UpdateChecker.UpdateInfo i = UpdateChecker.result;
+        if (i == null) return StructuredText.of("\u00A77[...]");
         if (UpdateDownloader.downloadComplete) {
-            return Component.literal("Neustart erforderlich");
+            return StructuredText.of("\u00A7c[restart]");
         }
         if (UpdateDownloader.downloading) {
             int pct = UpdateDownloader.downloadPercent;
-            return Component.literal("Wird heruntergeladen... " + (pct >= 0 ? pct + "%" : ""));
+            String p = pct >= 0 ? pct + "%" : "...";
+            return StructuredText.of("\u00A77[downloading... " + p + "]");
         }
-        if (info.updateAvailable()) {
-            if (info.jarFileName() == null) {
-                return Component.literal("Kein JAR für diese MC-Version gefunden");
+        if (i.updateAvailable()) {
+            return StructuredText.of("\u00A7e[download update]");
+        }
+        return StructuredText.of("\u00A7f[up to date]");
+    }
+
+    private static GuiComponent buildBody(IFontRenderer font, @Nullable UpdateChecker.UpdateInfo info) {
+        return new RowComponent(buildVersionList(font, info), buildChangelogPanel(font, info));
+    }
+
+    private static GuiComponent buildVersionList(IFontRenderer font, @Nullable UpdateChecker.UpdateInfo info) {
+        List<GuiComponent> items = new ArrayList<>();
+
+        items.add(new TextComponent(font, () -> StructuredText.of("\u00A7d\u00A7lChangelogs"),
+                LEFT_SCROLL_W - 4, TextComponent.TextAlignment.CENTER, false, false));
+
+        items.add(new TextComponent(font, () -> StructuredText.of(magentaUnderline(LEFT_SCROLL_W - 12)),
+                LEFT_SCROLL_W - 4, TextComponent.TextAlignment.CENTER, false, false));
+
+        items.add(new TextComponent(font, () -> StructuredText.of(separatorLine(LEFT_SCROLL_W - 12)),
+                LEFT_SCROLL_W - 4, TextComponent.TextAlignment.CENTER, false, false));
+
+        if (info != null && !info.versionList().isEmpty()) {
+            for (String ver : info.versionList()) {
+                items.add(new VersionNavRow(
+                        font,
+                        LEFT_SCROLL_W,
+                        ver,
+                        () -> selectedVersion,
+                        () -> selectedVersion = ver,
+                        () -> displayVersion(ver)));
             }
-            return Component.literal("Update herunterladen (v" + info.latestVersion() + ")");
+        } else {
+            items.add(new TextComponent(font, () -> StructuredText.of("\u00A78..."),
+                    LEFT_SCROLL_W - 4, TextComponent.TextAlignment.CENTER, false, false));
         }
-        return Component.literal("Aktuell (v" + info.currentVersion() + ")");
+
+        GuiComponent column = new ColumnComponent(items);
+        GuiComponent scroll = new ScrollPanelComponent(LEFT_SCROLL_W, BODY_HEIGHT, column);
+        return new PanelComponent(scroll, 4, PanelComponent.DefaultBackgroundRenderer.DARK_RECT);
     }
 
-    private boolean isActionActive() {
-        UpdateChecker.UpdateInfo info = UpdateChecker.result;
-        if (info == null) return false;
-        if (UpdateDownloader.downloadComplete) return false;
-        if (UpdateDownloader.downloading) return false;
-        return info.updateAvailable() && info.jarFileName() != null;
-    }
-
-    private void updateActionButton() {
-        if (actionButton != null) {
-            actionButton.setMessage(getActionLabel());
-            actionButton.active = isActionActive();
-
-            if (UpdateDownloader.downloadComplete && closeButton != null) {
-                closeButton.setMessage(Component.literal("Minecraft schließen"));
+    private static GuiComponent buildChangelogPanel(IFontRenderer font, @Nullable UpdateChecker.UpdateInfo info) {
+        TextComponent subtitle = new TextComponent(font, () -> {
+            if (selectedVersion == null) {
+                return StructuredText.of("\u00A77Changelog for selected release.");
             }
+            return StructuredText.of("\u00A77Changelog for "
+                    + displayVersion(selectedVersion) + ".");
+        }, RIGHT_SCROLL_W - 4, TextComponent.TextAlignment.LEFT, false, false);
+
+        ChangelogHeadlineComponent headline = new ChangelogHeadlineComponent(
+                font,
+                () -> {
+                    if (selectedVersion == null) {
+                        return StructuredText.of("\u00A7fChangelog entries for v?");
+                    }
+                    return StructuredText.of("\u00A7fChangelog entries for " + displayVersion(selectedVersion));
+                },
+                RIGHT_SCROLL_W - 12);
+
+        TextComponent changelogText = new TextComponent(font, () -> {
+            UpdateChecker.UpdateInfo i = UpdateChecker.result;
+            if (i == null) return StructuredText.of("\u00A77Loading...");
+            if (selectedVersion == null) return StructuredText.of("\u00A77Select a version.");
+
+            Map<String, String> logs = i.allChangelogs();
+            String md = logs != null ? logs.get(selectedVersion) : null;
+            if (md == null) return StructuredText.of("\u00A77No changelog for this version.");
+
+            return StructuredText.of("\n" + formatChangelog(md));
+        }, RIGHT_SCROLL_W - 4, TextComponent.TextAlignment.LEFT, false, true);
+
+        GuiComponent body = new ColumnComponent(subtitle, headline, changelogText);
+        GuiComponent scroll = new ScrollPanelComponent(RIGHT_SCROLL_W, BODY_HEIGHT, body);
+        return new PanelComponent(scroll, 4, PanelComponent.DefaultBackgroundRenderer.DARK_RECT);
+    }
+
+    static String displayVersion(String raw) {
+        if (raw == null || raw.isEmpty()) return "v?";
+        return raw.startsWith("v") || raw.startsWith("V") ? raw : "v" + raw;
+    }
+
+    private static String magentaUnderline(int targetWidthPx) {
+        int count = Math.max(6, targetWidthPx / 5);
+        return "\u00A7d" + "\u2500".repeat(count);
+    }
+
+    private static String separatorLine(int targetWidthPx) {
+        int count = Math.max(8, targetWidthPx / 6);
+        StringBuilder sb = new StringBuilder("\u00A78");
+        for (int i = 0; i < count; i++) {
+            sb.append("- ");
         }
+        return sb.toString();
     }
 
-    private void onActionPressed() {
-        UpdateChecker.UpdateInfo info = UpdateChecker.result;
-        if (info == null || info.downloadUrl() == null || info.jarFileName() == null) return;
-        UpdateDownloader.downloadAsync(info.downloadUrl(),
-                "KrepAPI-update-" + info.latestVersion());
+    private static String formatChangelog(String markdown) {
+        StringBuilder sb = new StringBuilder();
+        boolean firstBulletAfterH2 = false;
+        for (String line : markdown.split("\n")) {
+            if (line.startsWith("# ")) {
+                sb.append("\u00A7e\u00A7l").append(line.substring(2));
+                firstBulletAfterH2 = false;
+            } else if (line.startsWith("## ")) {
+                sb.append("\u00A7d\u00A7l").append(line.substring(3));
+                firstBulletAfterH2 = true;
+            } else if (line.startsWith("### ")) {
+                sb.append("\u00A7a").append(line.substring(4));
+                firstBulletAfterH2 = false;
+            } else if (line.startsWith("- ")) {
+                if (firstBulletAfterH2) {
+                    sb.append("\u00A7f    \u00B7 ").append(line.substring(2));
+                    firstBulletAfterH2 = false;
+                } else {
+                    sb.append("\u00A77    \u00B7 ").append(line.substring(2));
+                }
+            } else if (line.startsWith("**") && line.endsWith("**")) {
+                sb.append("\u00A7f\u00A7l").append(line, 2, line.length() - 2);
+            } else if (line.isEmpty()) {
+                sb.append(" ");
+            } else {
+                sb.append("\u00A77").append(line);
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
     }
 
-    @Override
-    public void onClose() {
+    private static void onAction() {
         if (UpdateDownloader.downloadComplete) {
             Minecraft.getInstance().stop();
             return;
         }
-        this.minecraft.setScreen(this.parent);
+        if (UpdateDownloader.downloading) return;
+        UpdateChecker.UpdateInfo info = UpdateChecker.result;
+        if (info == null || !info.updateAvailable()) return;
+        if (info.downloadUrl() == null || info.jarFileName() == null) return;
+        UpdateDownloader.downloadAsync(info.downloadUrl(),
+                "KrepAPI-update-" + info.latestVersion());
     }
 }

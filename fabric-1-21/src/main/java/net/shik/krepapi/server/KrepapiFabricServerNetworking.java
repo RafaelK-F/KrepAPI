@@ -161,7 +161,7 @@ public final class KrepapiFabricServerNetworking {
                 return;
             }
             if (payload.protocolVersion() != KrepapiProtocolVersion.CURRENT) {
-                debug("Kick " + player.getGameProfile().getName() + ": PROTOCOL_MISMATCH (client="
+                debug("Kick " + player.getName().getString() + ": PROTOCOL_MISMATCH (client="
                         + payload.protocolVersion() + " server=" + KrepapiProtocolVersion.CURRENT + ")");
                 player.connection.disconnect(Component.literal(KrepapiKickReasons.PROTOCOL_MISMATCH));
                 return;
@@ -172,20 +172,20 @@ public final class KrepapiFabricServerNetworking {
                     entry.constraintsSnapshot
             );
             if (fail != null) {
-                debug("Kick " + player.getGameProfile().getName() + ": version check failed ("
+                debug("Kick " + player.getName().getString() + ": version check failed ("
                         + fail.reason() + ") modVersion=" + payload.modVersion());
                 player.connection.disconnect(Component.literal(KrepapiKickReasons.forVersionCheckFailure(fail)));
                 return;
             }
             entry.clientCapabilities = payload.capabilities();
-            debug("Handshake complete: " + player.getGameProfile().getName()
+            debug("Handshake complete: " + player.getName().getString()
                     + " modVersion=" + payload.modVersion()
                     + " caps=0x" + Integer.toHexString(payload.capabilities()));
         });
 
         ServerPlayNetworking.registerGlobalReceiver(KrepapiKeyActionC2SPayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
-            debug(player.getGameProfile().getName() + " key_action actionId=" + payload.actionId()
+            debug(player.getName().getString() + " key_action actionId=" + payload.actionId()
                     + " phase=" + (payload.phase() == 0 ? "press" : "release") + " seq=" + payload.sequence());
             for (KeyActionListener listener : KEY_ACTION_LISTENERS) {
                 try {
@@ -198,7 +198,7 @@ public final class KrepapiFabricServerNetworking {
 
         ServerPlayNetworking.registerGlobalReceiver(KrepapiRawKeyC2SPayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
-            debug(player.getGameProfile().getName() + " raw_key key=" + payload.key()
+            debug(player.getName().getString() + " raw_key key=" + payload.key()
                     + " action=" + payload.glfwAction() + " seq=" + payload.sequence());
             for (RawKeyListener listener : RAW_KEY_LISTENERS) {
                 try {
@@ -211,7 +211,7 @@ public final class KrepapiFabricServerNetworking {
 
         ServerPlayNetworking.registerGlobalReceiver(KrepapiMouseActionC2SPayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
-            debug(player.getGameProfile().getName() + " mouse_action kind="
+            debug(player.getName().getString() + " mouse_action kind="
                     + (payload.action().kind() == ProtocolMessages.MOUSE_ACTION_KIND_BUTTON ? "button" : "scroll")
                     + " seq=" + payload.action().sequence());
             for (MouseActionListener listener : MOUSE_ACTION_LISTENERS) {
@@ -241,7 +241,7 @@ public final class KrepapiFabricServerNetworking {
             String effectiveMin = KrepapiVersionPolicy.effectiveMinimum(cfg, snap);
             HANDSHAKE.begin(player.getUUID(), nonce, effectiveMin, flags != 0, cfg, snap);
             HANDSHAKE_TICKS.put(player.getUUID(), 0);
-            debug("Handshake begin: " + player.getGameProfile().getName()
+            debug("Handshake begin: " + player.getName().getString()
                     + " effectiveMin=" + effectiveMin + " flags=" + flags);
             ServerPlayNetworking.send(player, new KrepapiHelloS2CPayload(
                     KrepapiProtocolVersion.CURRENT,

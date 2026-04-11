@@ -19,7 +19,7 @@ public final class KrepapiUpdateHud {
 
         toastShown = true;
         if (info.updateAvailable()) {
-            client.getToasts().addToast(new KrepapiUpdateToast());
+            client.getToastManager().addToast(new KrepapiUpdateToast());
         }
     }
 

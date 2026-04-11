@@ -3,8 +3,6 @@ package net.shik.krepapi.client;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.fabricmc.loader.api.FabricLoader;
-import net.shik.krepapi.protocol.KrepapiBuildVersion;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -12,9 +10,19 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
+import net.shik.krepapi.protocol.KrepapiBuildVersion;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public final class UpdateChecker {
+
+    private static final Logger UPDATE_LOG = LoggerFactory.getLogger("krepapi-update");
 
     public static volatile UpdateInfo result = null;
 
@@ -31,7 +39,9 @@ public final class UpdateChecker {
             String jarFileName,
             String downloadUrl,
             String changelogMarkdown,
-            boolean updateAvailable
+            boolean updateAvailable,
+            List<String> versionList,
+            Map<String, String> allChangelogs
     ) {}
 
     private UpdateChecker() {}
@@ -54,7 +64,8 @@ public final class UpdateChecker {
                         HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
                 if (versionsResp.statusCode() != 200) {
                     logWarn("versions.json returned HTTP " + versionsResp.statusCode());
-                    result = new UpdateInfo(null, currentModVersion, null, null, null, false);
+                    result = new UpdateInfo(null, currentModVersion, null, null, null, false,
+                            List.of(), Map.of());
                     return;
                 }
 
@@ -62,6 +73,8 @@ public final class UpdateChecker {
                 JsonObject versions = root.getAsJsonObject("versions");
                 String latest = versions.get("latest").getAsString();
                 JsonObject list = versions.getAsJsonObject("list");
+
+                List<String> versionList = new ArrayList<>(list.keySet());
 
                 String jarFileName = null;
                 if (list.has(latest)) {
@@ -84,13 +97,22 @@ public final class UpdateChecker {
 
                 boolean updateAvailable = KrepapiBuildVersion.compare(latest, currentModVersion) > 0;
 
-                String changelog = fetchChangelog(client, latest);
+                Map<String, String> allChangelogs = new LinkedHashMap<>();
+                for (String ver : versionList) {
+                    String md = fetchChangelog(client, ver);
+                    if (md != null) {
+                        allChangelogs.put(ver, md);
+                    }
+                }
+
+                String latestChangelog = allChangelogs.get(latest);
 
                 result = new UpdateInfo(latest, currentModVersion, jarFileName, downloadUrl,
-                        changelog, updateAvailable);
+                        latestChangelog, updateAvailable, versionList, allChangelogs);
             } catch (Exception e) {
                 logWarn("Update check failed: " + e.getMessage());
-                result = new UpdateInfo(null, currentModVersion, null, null, null, false);
+                result = new UpdateInfo(null, currentModVersion, null, null, null, false,
+                        List.of(), Map.of());
             }
         }, "krepapi-update-check");
         thread.setDaemon(true);
@@ -109,12 +131,12 @@ public final class UpdateChecker {
                     HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             return resp.statusCode() == 200 ? resp.body() : null;
         } catch (Exception e) {
-            logWarn("Changelog fetch failed: " + e.getMessage());
+            logWarn("Changelog fetch failed for " + version + ": " + e.getMessage());
             return null;
         }
     }
 
     private static void logWarn(String msg) {
-        FabricLoader.getInstance().getLogger("krepapi-update").warn(msg);
+        UPDATE_LOG.warn(msg);
     }
 }

@@ -105,7 +105,7 @@ final class ServerBindingLabels {
         try {
             Method get = languageManager.getClass().getMethod("getLanguage");
             return get.invoke(languageManager);
-        } catch (NoSuchMethodException | ReflectiveOperationException ignored) {
+        } catch (ReflectiveOperationException ignored) {
         }
         try {
             for (Method m : languageManager.getClass().getMethods()) {

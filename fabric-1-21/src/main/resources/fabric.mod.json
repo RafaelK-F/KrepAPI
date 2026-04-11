@@ -7,8 +7,20 @@
   "authors": [
     "shik"
   ],
-  "contact": {},
+  "contact": {
+    "homepage": "https://github.com/RafaelK-F/KrepAPI",
+    "issues": "https://github.com/RafaelK-F/KrepAPI/issues"
+  },
+  "custom": {
+    "modmenu": {
+      "links": {
+        "modmenu.github": "https://github.com/RafaelK-F/KrepAPI"
+      },
+      "update_checker": true
+    }
+  },
   "license": "All-Rights-Reserved",
+  "accessWidener": "krepapi.accesswidener",
   "icon": "assets/krepapi/icon.png",
   "environment": "*",
   "entrypoints": {
@@ -16,21 +28,17 @@
       "net.shik.krepapi.client.KrepapiDataGenerator"
     ],
     "client": [
-      "net.shik.krepapi.client.KrepapiClient"
+      "net.shik.krepapi.Krepapi"
     ],
     "main": [
       "net.shik.krepapi.Krepapi"
     ],
     "modmenu": [
-      "net.shik.krepapi.client.KrepapiModMenuIntegration"
+      "net.shik.krepapi.KrepapiModMenuEntry"
     ]
   },
   "mixins": [
-    "krepapi.mixins.json",
-    {
-      "config": "krepapi.client.mixins.json",
-      "environment": "client"
-    }
+    "krepapi.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${loader_version}",

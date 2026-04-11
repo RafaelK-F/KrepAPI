@@ -37,7 +37,7 @@ class KrepapiBuildVersionTest {
     @Test
     void maxPicksHighest() {
         assertEquals("2.0.0", KrepapiBuildVersion.max("1.1.0", "2.0.0", "1.9.9"));
-        assertEquals("1.2.0", KrepapiBuildVersion.max("1.2.0", "1.1.0"));
+        assertEquals("1.3.0", KrepapiBuildVersion.max("1.3.0", "1.1.0"));
     }
 
     @Test

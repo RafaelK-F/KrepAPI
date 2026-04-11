@@ -1,7 +1,7 @@
 package net.shik.krepapi.client;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -46,49 +46,49 @@ public class KrepapiMenuScreen26 extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        super.render(graphics, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(graphics, mouseX, mouseY, delta);
 
         UpdateChecker.UpdateInfo info = UpdateChecker.result;
 
         int y = PADDING;
         int centerX = this.width / 2;
 
-        graphics.drawCenteredString(this.font, "KrepAPI",
+        graphics.centeredText(this.font, "KrepAPI",
                 centerX, y, 0x55FF55);
         y += LINE_HEIGHT + 4;
 
         if (info == null) {
-            graphics.drawCenteredString(this.font, "Update-Info wird geladen...",
+            graphics.centeredText(this.font, "Update-Info wird geladen...",
                     centerX, y, 0xAAAAAA);
         } else {
             String currentLabel = "Installiert: v" + info.currentVersion();
-            graphics.drawCenteredString(this.font, currentLabel,
+            graphics.centeredText(this.font, currentLabel,
                     centerX, y, 0xFFFFFF);
             y += LINE_HEIGHT;
 
             if (info.latestVersion() != null) {
                 String latestLabel = "Neueste: v" + info.latestVersion();
                 int latestColor = info.updateAvailable() ? 0xFFFF55 : 0x55FF55;
-                graphics.drawCenteredString(this.font, latestLabel,
+                graphics.centeredText(this.font, latestLabel,
                         centerX, y, latestColor);
                 y += LINE_HEIGHT;
 
                 if (info.updateAvailable()) {
-                    graphics.drawCenteredString(this.font, "\u26A0 Update verfügbar!",
+                    graphics.centeredText(this.font, "\u26A0 Update verfügbar!",
                             centerX, y, 0xFFAA00);
                 } else {
-                    graphics.drawCenteredString(this.font, "\u2714 Aktuell",
+                    graphics.centeredText(this.font, "\u2714 Aktuell",
                             centerX, y, 0x55FF55);
                 }
             } else {
-                graphics.drawCenteredString(this.font, "Update-Check fehlgeschlagen",
+                graphics.centeredText(this.font, "Update-Check fehlgeschlagen",
                         centerX, y, 0xFF5555);
             }
             y += LINE_HEIGHT + 8;
 
             if (UpdateDownloader.downloadError != null) {
-                graphics.drawCenteredString(this.font, "Fehler: " + UpdateDownloader.downloadError,
+                graphics.centeredText(this.font, "Fehler: " + UpdateDownloader.downloadError,
                         centerX, y, 0xFF5555);
                 y += LINE_HEIGHT + 4;
             }
@@ -102,7 +102,7 @@ public class KrepapiMenuScreen26 extends Screen {
         updateActionButton();
     }
 
-    private void renderChangelog(GuiGraphics graphics, String markdown, int x, int y,
+    private void renderChangelog(GuiGraphicsExtractor graphics, String markdown, int x, int y,
                                  int maxWidth, int maxHeight) {
         graphics.enableScissor(x, y, x + maxWidth, y + maxHeight);
 
@@ -133,7 +133,7 @@ public class KrepapiMenuScreen26 extends Screen {
             var wrappedLines = this.font.split(Component.literal(text), maxWidth);
             for (var formattedLine : wrappedLines) {
                 if (drawY >= y - LINE_HEIGHT && drawY < y + maxHeight) {
-                    graphics.drawString(this.font, formattedLine, x, drawY, color);
+                    graphics.text(this.font, formattedLine, x, drawY, color, false);
                 }
                 drawY += LINE_HEIGHT;
                 totalHeight += LINE_HEIGHT;

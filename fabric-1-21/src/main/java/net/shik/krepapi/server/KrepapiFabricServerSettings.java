@@ -9,7 +9,7 @@ public final class KrepapiFabricServerSettings {
     public volatile boolean requireClientOnDedicatedServer = false;
 
     /** Config-style floor; combined with {@link KrepapiFabricServerNetworking#registerMinimumBuildVersion} / feature registrations. */
-    public volatile String minimumModVersion = "1.2.0";
+    public volatile String minimumModVersion = "1.3.0";
 
     public volatile int handshakeTimeoutTicks = 200;
 

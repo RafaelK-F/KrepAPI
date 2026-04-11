@@ -19,7 +19,7 @@ public class KrepapiClient implements ClientModInitializer {
         String modVersion = FabricLoader.getInstance()
                 .getModContainer("krepapi").get()
                 .getMetadata().getVersion().getFriendlyString();
-        String mcVersion = SharedConstants.getCurrentVersion().getName();
+        String mcVersion = SharedConstants.getCurrentVersion().name();
         UpdateChecker.checkAsync(modVersion, mcVersion);
 
         ClientTickEvents.END_CLIENT_TICK.register(KrepapiUpdateHud::tick);

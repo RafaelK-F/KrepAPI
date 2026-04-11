@@ -46,6 +46,8 @@ $RECYCLE.BIN/     # NEU
 *.swp
 *~
 *.orig            # NEU — Git merge-Artefakte
+*Edit conflict*   # Cursor/Editor-Kopien bei Dateikonflikten (sonst doppelte public class)
+*Name clash*      # Gleiches Problem bei Namenskollisionen
 
 # Sonstiges
 target/

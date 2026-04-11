@@ -1,7 +1,5 @@
 package net.shik.krepapi.client;
 
-import net.fabricmc.loader.api.FabricLoader;
-
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -12,7 +10,14 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 
+import net.fabricmc.loader.api.FabricLoader;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public final class UpdateDownloader {
+
+    private static final Logger UPDATE_LOG = LoggerFactory.getLogger("krepapi-update");
 
     public static volatile int downloadPercent = -1;
     public static volatile boolean downloading = false;
@@ -79,8 +84,7 @@ public final class UpdateDownloader {
                 downloadComplete = true;
             } catch (Exception e) {
                 downloadError = e.getMessage();
-                FabricLoader.getInstance().getLogger("krepapi-update")
-                        .warn("Download failed", e);
+                UPDATE_LOG.warn("Download failed", e);
             } finally {
                 downloading = false;
             }

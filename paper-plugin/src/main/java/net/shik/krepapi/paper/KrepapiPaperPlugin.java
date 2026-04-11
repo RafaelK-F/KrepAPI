@@ -103,7 +103,7 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
     public void onEnable() {
         saveDefaultConfig();
         try {
-            KrepapiVersionRequirement.parse(getConfig().getString("minimum-mod-version", "1.2.0").trim());
+            KrepapiVersionRequirement.parse(getConfig().getString("minimum-mod-version", "1.3.0").trim());
         } catch (IllegalArgumentException ex) {
             getLogger().severe("Invalid minimum-mod-version in config.yml: " + ex.getMessage());
             getServer().getPluginManager().disablePlugin(this);
@@ -230,7 +230,7 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         byte flags = getConfig().getBoolean("require-krepapi", true)
                 ? ProtocolMessages.HELLO_FLAG_REQUIRE_RESPONSE
                 : 0;
-        String configMin = getConfig().getString("minimum-mod-version", "1.2.0");
+        String configMin = getConfig().getString("minimum-mod-version", "1.3.0");
         List<KrepapiVersionPolicy.Constraint> snap = snapshotConstraints();
         try {
             KrepapiVersionPolicy.validateRequirements(configMin, snap);

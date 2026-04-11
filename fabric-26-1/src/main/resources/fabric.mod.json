@@ -9,6 +9,7 @@
   ],
   "contact": {},
   "license": "All-Rights-Reserved",
+  "accessWidener": "krepapi.accesswidener",
   "icon": "assets/krepapi/icon.png",
   "environment": "*",
   "entrypoints": {
@@ -16,18 +17,14 @@
       "net.shik.krepapi.client.KrepapiDataGenerator"
     ],
     "client": [
-      "net.shik.krepapi.client.KrepapiClient"
+      "net.shik.krepapi.Krepapi"
     ],
     "main": [
       "net.shik.krepapi.Krepapi"
     ]
   },
   "mixins": [
-    "krepapi.mixins.json",
-    {
-      "config": "krepapi.client.mixins.json",
-      "environment": "client"
-    }
+    "krepapi.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${loader_version}",

@@ -2,7 +2,7 @@ package net.shik.krepapi.client;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public final class KrepapiUpdateHud {
 
@@ -19,11 +19,11 @@ public final class KrepapiUpdateHud {
 
         toastShown = true;
         if (info.updateAvailable()) {
-            client.getToasts().addToast(new KrepapiUpdateToast());
+            client.getToastManager().addToast(new KrepapiUpdateToast());
         }
     }
 
-    public static void render(GuiGraphics graphics, DeltaTracker tickDelta) {
+    public static void extractRenderState(GuiGraphicsExtractor graphics, DeltaTracker tickDelta) {
         UpdateChecker.UpdateInfo info = UpdateChecker.result;
         if (info == null || !info.updateAvailable()) return;
         if (UpdateDownloader.downloadComplete) return;
@@ -35,7 +35,7 @@ public final class KrepapiUpdateHud {
         int x = screenWidth - hudTextWidth - 4;
         int y = 4;
 
-        graphics.drawString(client.font, HUD_TEXT, x, y, 0xFFFF55);
+        graphics.text(client.font, HUD_TEXT, x, y, 0xFFFF55, false);
     }
 
     public static boolean handleClick(double mouseX, double mouseY) {

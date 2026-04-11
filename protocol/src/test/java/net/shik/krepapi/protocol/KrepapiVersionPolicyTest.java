@@ -15,8 +15,8 @@ class KrepapiVersionPolicyTest {
                 "1.1.0",
                 List.of(
                         KrepapiVersionPolicy.Constraint.feature("a", "1.1.0"),
-                        KrepapiVersionPolicy.Constraint.global("1.2.0")));
-        assertEquals("1.2.0", eff);
+                        KrepapiVersionPolicy.Constraint.global("1.3.0")));
+        assertEquals("1.3.0", eff);
     }
 
     @Test
@@ -27,7 +27,7 @@ class KrepapiVersionPolicyTest {
                 List.of(
                         KrepapiVersionPolicy.Constraint.feature("low", "1.1.0"),
                         KrepapiVersionPolicy.Constraint.feature("high", "1.3.0"),
-                        KrepapiVersionPolicy.Constraint.feature("mid", "1.2.0")));
+                        KrepapiVersionPolicy.Constraint.feature("mid", "1.3.0")));
         assertEquals("high", c.featureId());
         assertEquals("1.3.0", c.minimumBuildVersion());
     }
@@ -66,10 +66,10 @@ class KrepapiVersionPolicyTest {
     @Test
     void effectiveMinimumJoinsMixedSpecsWithSemicolon() {
         assertEquals(
-                "1.1.x; 1.2.0",
+                "1.1.x; 1.3.0",
                 KrepapiVersionPolicy.effectiveMinimum(
                         "1.1.x",
-                        List.of(KrepapiVersionPolicy.Constraint.global("1.2.0"))));
+                        List.of(KrepapiVersionPolicy.Constraint.global("1.3.0"))));
     }
 
     @Test
@@ -77,7 +77,7 @@ class KrepapiVersionPolicyTest {
         KrepapiVersionPolicy.VersionCheckFailure f = KrepapiVersionPolicy.firstVersionCheckFailure(
                 "1.0.0",
                 "1.0.0",
-                List.of(KrepapiVersionPolicy.Constraint.feature("feat", "1.2.0")));
+                List.of(KrepapiVersionPolicy.Constraint.feature("feat", "1.3.0")));
         assertEquals("feat", f.constraint().featureId());
         assertEquals(KrepapiVersionRequirement.FailureReason.TOO_LOW, f.reason());
     }
