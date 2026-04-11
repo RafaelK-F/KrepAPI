@@ -22,9 +22,10 @@ public final class ProtocolMessages {
     public static final int MAX_CATEGORY_UTF8_BYTES = 256;
 
     /**
-     * Hard cap on encoded {@link BindingsSync} size (bytes) to bound allocation on encode/decode.
+     * Hard cap on encoded {@link BindingsSync} size (bytes). {@link #encodeBindingsSync} and {@link #decodeBindingsSync}
+     * use the same limit so decode budget matches encode.
      */
-    private static final long MAX_BINDINGS_SYNC_ENCODED_BYTES = 50_000_000L;
+    public static final long MAX_BINDINGS_SYNC_ENCODED_BYTES = 50_000_000L;
 
     private static final long MAX_RAW_CAPTURE_ENCODED_BYTES = 50_000L;
 
@@ -265,6 +266,9 @@ public final class ProtocolMessages {
     }
 
     public static BindingsSync decodeBindingsSync(byte[] data) {
+        if ((long) data.length > MAX_BINDINGS_SYNC_ENCODED_BYTES) {
+            throw new IllegalArgumentException("bindings payload too large");
+        }
         ByteBuffer buf = ByteBuffer.wrap(data);
         int n = ProtocolBuf.readVarInt(buf);
         if (n < 0 || n > MAX_BINDING_ENTRIES) {
