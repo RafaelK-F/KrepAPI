@@ -157,7 +157,7 @@ Encoded `s2c_bindings` is rejected if the computed size exceeds a large internal
 | count | varint |
 | × count | `actionId` UTF-8 (≤ 256 B), `displayName` UTF-8 (≤ 32767 B), `defaultKey` varint (GLFW key), `overrideVanilla` boolean, `category` UTF-8 (≤ 256 B) |
 
-The Fabric KrepAPI client uses `displayName` for the controls-row label and `category` for grouping and section titles (see `docs/client-api.md` and `KeyMappingCompat` / `ServerBindingLabels`).
+The Fabric KrepAPI client uses `displayName` for the controls-row label and `category` for grouping and section titles (see `docs/client-api.md` and `KeyMappingCompat` / `ServerBindingLabels`). Category ids map to **two** language keys (`key.category.*` and `key.categories.*`); see **Category translation keys** there so labels stay correct across Minecraft versions.
 
 Large lists may use Fabric `registerLarge` on the client mod; Paper should keep payloads within server limits or split logic client-side.
 

@@ -15,6 +15,10 @@ import net.shik.krepapi.protocol.ProtocolMessages;
 /**
  * Injects {@link ProtocolMessages.BindingEntry#displayName()} and category titles into the active client
  * {@code Language} string table so {@link net.minecraft.client.KeyMapping} translation keys resolve at runtime.
+ * <p>
+ * For each category {@link Identifier}, both {@code key.category.<ns>.<path>} and {@code key.categories.<ns>.<path>}
+ * (path segments {@code /} → {@code .}) are set to the same string so controls grouping matches vanilla across
+ * versions that look up either prefix.
  */
 final class ServerBindingLabels {
     private static final Set<String> INJECTED = new HashSet<>();

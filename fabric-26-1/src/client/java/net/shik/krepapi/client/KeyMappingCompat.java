@@ -8,6 +8,8 @@ import net.shik.krepapi.protocol.ProtocolMessages;
 
 /**
  * Builds a server-driven {@link KeyMapping} using protocol {@link ProtocolMessages.BindingEntry#category()}.
+ * Category labels in the controls UI resolve via language keys; see {@link ServerBindingLabels} for the
+ * {@code key.category.*} / {@code key.categories.*} pair injected per category id.
  */
 final class KeyMappingCompat {
     private KeyMappingCompat() {
