@@ -2,6 +2,7 @@ package net.shik.krepapi.protocol;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -88,6 +89,29 @@ public final class ProtocolMessages {
     }
 
     public record BindingsSync(List<BindingEntry> entries) {
+    }
+
+    /**
+     * Collapses duplicate {@link BindingEntry#actionId()} values: only the last occurrence in {@code entries} is kept,
+     * preserving the relative order of those surviving rows (same order as if duplicates were removed by scanning
+     * forward).
+     */
+    public static List<BindingEntry> dedupeBindingEntriesLastWins(List<BindingEntry> entries) {
+        if (entries.size() <= 1) {
+            return new ArrayList<>(entries);
+        }
+        HashMap<String, Integer> lastIndex = new HashMap<>();
+        for (int i = 0; i < entries.size(); i++) {
+            lastIndex.put(entries.get(i).actionId(), i);
+        }
+        ArrayList<BindingEntry> out = new ArrayList<>(lastIndex.size());
+        for (int i = 0; i < entries.size(); i++) {
+            BindingEntry e = entries.get(i);
+            if (lastIndex.get(e.actionId()) == i) {
+                out.add(e);
+            }
+        }
+        return out;
     }
 
     public record KeyAction(String actionId, byte phase, int sequence) {

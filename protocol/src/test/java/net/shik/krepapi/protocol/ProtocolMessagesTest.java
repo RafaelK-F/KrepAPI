@@ -53,6 +53,21 @@ class ProtocolMessagesTest {
     }
 
     @Test
+    void dedupeBindingEntriesLastWinsKeepsLastPerActionIdInScanOrder() {
+        ProtocolMessages.BindingEntry x0 = new ProtocolMessages.BindingEntry("x", "first", 1, false, "c");
+        ProtocolMessages.BindingEntry y = new ProtocolMessages.BindingEntry("y", "y", 2, false, "c");
+        ProtocolMessages.BindingEntry x1 = new ProtocolMessages.BindingEntry("x", "second", 3, true, "d");
+        List<ProtocolMessages.BindingEntry> in = List.of(x0, y, x1);
+        List<ProtocolMessages.BindingEntry> out = ProtocolMessages.dedupeBindingEntriesLastWins(in);
+        assertEquals(2, out.size());
+        assertEquals(y, out.get(0));
+        assertEquals(x1, out.get(1));
+        assertEquals("second", out.get(1).displayName());
+        assertEquals(3, out.get(1).defaultKey());
+        assertEquals(true, out.get(1).overrideVanilla());
+    }
+
+    @Test
     void keyActionActionIdTooLongRejectedOnEncode() {
         String id = "i".repeat(ProtocolMessages.MAX_ACTION_ID_UTF8_BYTES + 1);
         assertThrows(

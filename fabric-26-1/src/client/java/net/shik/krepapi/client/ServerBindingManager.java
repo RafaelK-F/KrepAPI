@@ -38,14 +38,15 @@ public final class ServerBindingManager {
     }
 
     public static void applyBindings(Minecraft client, List<ProtocolMessages.BindingEntry> entries) {
+        List<ProtocolMessages.BindingEntry> unique = ProtocolMessages.dedupeBindingEntriesLastWins(entries);
         clear(client);
-        for (ProtocolMessages.BindingEntry e : entries) {
+        for (ProtocolMessages.BindingEntry e : unique) {
             String translationKey = "krepapi.server." + sanitize(e.actionId());
             KeyMapping mapping = KeyMappingCompat.createServerBinding(translationKey, e.defaultKey());
             KeyMappingHelper.registerKeyMapping(mapping);
             ACTIVE.put(e.actionId(), mapping);
         }
-        KrepapiKeyPipeline.setServerOverrideBindings(entries);
+        KrepapiKeyPipeline.setServerOverrideBindings(unique);
     }
 
     public static void clear(Minecraft client) {

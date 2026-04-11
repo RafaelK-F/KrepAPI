@@ -233,10 +233,11 @@ public final class KrepapiFabricServerNetworking {
     }
 
     public static void sendBindings(ServerPlayer player, List<ProtocolMessages.BindingEntry> entries) {
-        if (entries.size() > ProtocolMessages.MAX_BINDING_ENTRIES) {
-            throw new IllegalArgumentException("too many binding entries: " + entries.size());
+        List<ProtocolMessages.BindingEntry> deduped = ProtocolMessages.dedupeBindingEntriesLastWins(entries);
+        if (deduped.size() > ProtocolMessages.MAX_BINDING_ENTRIES) {
+            throw new IllegalArgumentException("too many binding entries: " + deduped.size());
         }
-        ArrayList<ProtocolMessages.BindingEntry> copy = new ArrayList<>(entries);
+        ArrayList<ProtocolMessages.BindingEntry> copy = new ArrayList<>(deduped);
         copy.sort(Comparator.comparing(ProtocolMessages.BindingEntry::actionId));
         ServerPlayNetworking.send(player, new KrepapiBindingsS2CPayload(copy));
     }
