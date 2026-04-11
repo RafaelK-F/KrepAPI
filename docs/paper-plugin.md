@@ -153,4 +153,4 @@ Channel ids and encode helpers match [`docs/protocol.md`](protocol.md).
 
 ## Security
 
-Treat `c2s_key_action`, `c2s_raw_key`, and `c2s_mouse_action` as untrusted: rate-limit, validate `actionId` against what you sent in `s2c_bindings`, and never grant privileged actions solely on key packets. Raw-key and mouse streams can be frequent and may reveal input patterns or cursor position—only enable capture for trusted gameplay modes.
+Treat `c2s_key_action`, `c2s_raw_key`, and `c2s_mouse_action` as untrusted: rate-limit, validate `actionId` against what you sent in `s2c_bindings`, and never grant privileged actions solely on key packets. The protocol and reference Fabric stack **do not** perform that binding check for you—it is **always the server’s** responsibility (see **`c2s_key_action`** in [`docs/protocol.md`](protocol.md)). Raw-key and mouse streams can be frequent and may reveal input patterns or cursor position—only enable capture for trusted gameplay modes.
