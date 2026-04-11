@@ -22,9 +22,9 @@ KrepApi.registerRawKeyListener(1000, myListener);
 
 ## Server bindings
 
-Servers send `s2c_bindings`; the client registers `KeyMapping` entries under category `key.categories.krepapi.server`. Each tick, `KeyMapping.isDown()` edges send `c2s_key_action`: `PHASE_PRESS` when the key becomes held and `PHASE_RELEASE` when it is released (monotonic `sequence` per event). Focus and open GUIs affect detection the same way as vanilla key bindings.
+Servers send `s2c_bindings`; the client registers `KeyMapping` entries using each row’s `category` field (parsed to a `KeyMapping.Category` identifier; see `KeyMappingCompat.categoryIdentifierFromProtocol`). Each tick, `KeyMapping.isDown()` edges send `c2s_key_action`: `PHASE_PRESS` when the key becomes held and `PHASE_RELEASE` when it is released (monotonic `sequence` per event). Focus and open GUIs affect detection the same way as vanilla key bindings.
 
-Translation keys default to `krepapi.server.<sanitized_actionId>`. Add matching entries under `assets/<modid>/lang/` or ship a resource pack for readable names.
+The stable storage / translation key for each binding remains `krepapi.server.<sanitized_actionId>`. The protocol `displayName` and category label are merged into the active client language table at apply time (`ServerBindingLabels`) so the controls UI shows server text without shipping per-server lang files. Optional static entries under `assets/krepapi/lang/` still override or supplement defaults.
 
 ## Vanilla override from server
 

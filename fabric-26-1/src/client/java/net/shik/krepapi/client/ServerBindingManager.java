@@ -40,9 +40,10 @@ public final class ServerBindingManager {
     public static void applyBindings(Minecraft client, List<ProtocolMessages.BindingEntry> entries) {
         List<ProtocolMessages.BindingEntry> unique = ProtocolMessages.dedupeBindingEntriesLastWins(entries);
         clear(client);
+        ServerBindingLabels.apply(client, unique);
         for (ProtocolMessages.BindingEntry e : unique) {
-            String translationKey = "krepapi.server." + sanitize(e.actionId());
-            KeyMapping mapping = KeyMappingCompat.createServerBinding(translationKey, e.defaultKey());
+            String storageKey = bindingStorageTranslationKey(e.actionId());
+            KeyMapping mapping = KeyMappingCompat.createServerBinding(storageKey, e.defaultKey(), e);
             KeyMappingHelper.registerKeyMapping(mapping);
             ACTIVE.put(e.actionId(), mapping);
         }
@@ -53,6 +54,7 @@ public final class ServerBindingManager {
         KrepapiKeyPipeline.clearServerOverrides();
         if (client != null) {
             unregisterServerKeyMappings(client, ACTIVE.values());
+            ServerBindingLabels.clear(client);
         }
         ACTIVE.clear();
         PREV_HELD.clear();
@@ -83,6 +85,11 @@ public final class ServerBindingManager {
 
     private static String sanitize(String actionId) {
         return actionId.replaceAll("[^a-z0-9._-]", "_");
+    }
+
+    /** Stable {@link KeyMapping} id / translation key: {@code krepapi.server.<sanitized actionId>}. */
+    static String bindingStorageTranslationKey(String actionId) {
+        return "krepapi.server." + sanitize(actionId);
     }
 
     /**
