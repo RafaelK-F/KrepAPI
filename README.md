@@ -1,8 +1,6 @@
 # KrepAPI
 
-[![github](https://cdn.modrinth.com/data/cached_images/3a8258b2c33563745df8a582485713e35e685934.png)](https://github.com/RafaelK-F/KrepAPI-Plugin)
-
-[![KrepAPI-RoadMapBanner](https://cdn.modrinth.com/data/cached_images/9fd6e447379752d78e9e062e1dc40d43bba968ec_0.webp)](https://github.com/RafaelK-F/KrepAPI/wiki/Roadmap)
+[![mod-plugin](https://cdn.shik.work/assets/banners/mod-available-on-modrinth-r50.png)](https://modrinth.com/mod/krepapi)
 
 Fabric client bridge for servers: custom key bindings synced from the host, optional raw-key hooks for addons, and a handshake so Paper/Fabric servers can require this mod. Install only on servers that use KrepAPI. Needs Fabric API.
 
