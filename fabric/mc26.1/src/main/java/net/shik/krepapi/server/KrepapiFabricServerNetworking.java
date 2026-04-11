@@ -143,15 +143,13 @@ public final class KrepapiFabricServerNetworking {
 
         ServerPlayNetworking.registerGlobalReceiver(KrepapiClientInfoC2SPayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
-            if (!HANDSHAKE.markAnswered(player.getUUID(), payload.challengeNonce())) {
+            KrepapiFabricHandshakeState.Entry entry =
+                    HANDSHAKE.markAnswered(player.getUUID(), payload.challengeNonce());
+            if (entry == null) {
                 return;
             }
             if (payload.protocolVersion() != KrepapiProtocolVersion.CURRENT) {
                 player.connection.disconnect(Component.literal(KrepapiKickReasons.PROTOCOL_MISMATCH));
-                return;
-            }
-            KrepapiFabricHandshakeState.Entry entry = HANDSHAKE.get(player.getUUID());
-            if (entry == null) {
                 return;
             }
             KrepapiVersionPolicy.VersionCheckFailure fail = KrepapiVersionPolicy.firstVersionCheckFailure(
@@ -163,7 +161,7 @@ public final class KrepapiFabricServerNetworking {
                 player.connection.disconnect(Component.literal(KrepapiKickReasons.forVersionCheckFailure(fail)));
                 return;
             }
-            HANDSHAKE.setClientCapabilities(player.getUUID(), payload.capabilities());
+            entry.clientCapabilities = payload.capabilities();
         });
 
         ServerPlayNetworking.registerGlobalReceiver(KrepapiKeyActionC2SPayload.TYPE, (payload, context) -> {

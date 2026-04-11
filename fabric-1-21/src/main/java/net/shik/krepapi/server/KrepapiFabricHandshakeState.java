@@ -21,13 +21,24 @@ public final class KrepapiFabricHandshakeState {
         entries.put(playerId, new Entry(nonce, effectiveMin, requireResponse, false, configMin, constraintsSnapshot));
     }
 
-    public boolean markAnswered(UUID playerId, long nonce) {
-        Entry e = entries.get(playerId);
-        if (e == null || e.nonce != nonce) {
-            return false;
-        }
-        e.answered = true;
-        return true;
+    /**
+     * If an entry exists for {@code playerId} with matching {@code nonce} and is not yet answered,
+     * marks it answered atomically and returns it. Otherwise returns {@code null}.
+     * <p>
+     * Uses {@link ConcurrentHashMap#compute} so a concurrent {@link #remove} cannot interleave
+     * between marking answered and obtaining the entry reference (which would leave capabilities unset).
+     */
+    public Entry markAnswered(UUID playerId, long nonce) {
+        final Entry[] slot = new Entry[1];
+        entries.compute(playerId, (id, e) -> {
+            if (e == null || e.nonce != nonce || e.answered) {
+                return e;
+            }
+            e.answered = true;
+            slot[0] = e;
+            return e;
+        });
+        return slot[0];
     }
 
     public Entry get(UUID playerId) {
