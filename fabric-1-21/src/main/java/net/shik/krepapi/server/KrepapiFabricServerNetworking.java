@@ -27,6 +27,7 @@ import net.shik.krepapi.net.KrepapiMouseCaptureS2CPayload;
 import net.shik.krepapi.net.KrepapiRawCaptureS2CPayload;
 import net.shik.krepapi.net.KrepapiRawKeyC2SPayload;
 import net.shik.krepapi.protocol.KrepapiCapabilities;
+import net.shik.krepapi.protocol.KrepapiServerDebug;
 import net.shik.krepapi.protocol.KrepapiKickReasons;
 import net.shik.krepapi.protocol.KrepapiProtocolVersion;
 import net.shik.krepapi.protocol.KrepapiVersionPolicy;
@@ -38,8 +39,7 @@ public final class KrepapiFabricServerNetworking {
     private static final Logger LOGGER = LoggerFactory.getLogger("krepapi");
 
     private static boolean debugEnabled() {
-        return "true".equalsIgnoreCase(System.getProperty("krepapi.debug"))
-                || new java.io.File("krepapi-debug.txt").exists();
+        return KrepapiServerDebug.jvmOrMarkerFileEnabled();
     }
 
     private static void debug(String msg) {

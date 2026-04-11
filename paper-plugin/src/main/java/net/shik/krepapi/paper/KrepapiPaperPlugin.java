@@ -19,6 +19,7 @@ import org.jetbrains.annotations.NotNull;
 
 import net.kyori.adventure.text.Component;
 import net.shik.krepapi.protocol.KrepapiCapabilities;
+import net.shik.krepapi.protocol.KrepapiServerDebug;
 import net.shik.krepapi.protocol.KrepapiVersionRequirement;
 import net.shik.krepapi.protocol.KrepapiChannels;
 import net.shik.krepapi.protocol.KrepapiKickReasons;
@@ -32,7 +33,7 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
     private final Object debugLock = new Object();
 
     private boolean isDebug() {
-        return getConfig().getBoolean("debug-logging", false);
+        return getConfig().getBoolean("debug-logging", false) || KrepapiServerDebug.jvmOrMarkerFileEnabled();
     }
 
     private void debug(String msg) {
@@ -88,10 +89,7 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
     }
 
     private static String jstr(String v) {
-        if (v == null) {
-            return "null";
-        }
-        return "\"" + v.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        return KrepapiServerDebug.jsonString(v);
     }
 
     private final Map<UUID, PendingHandshake> pending = new ConcurrentHashMap<>();

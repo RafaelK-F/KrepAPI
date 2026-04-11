@@ -17,4 +17,5 @@ example-bindings: true
 
 # Enable debug logging for all KrepAPI events (handshake, key/mouse/raw actions).
 # Also creates an NDJSON file in plugins/KrepAPI/debug-<timestamp>.json.
+# Same sources as Fabric dedicated server: -Dkrepapi.debug=true or empty krepapi-debug.txt in the server working directory.
 debug-logging: false
