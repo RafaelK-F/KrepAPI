@@ -232,6 +232,9 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
 
     @Override
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte @NotNull [] message) {
+        if (!KrepapiChannels.isIncomingPlayChannel(channel)) {
+            return;
+        }
         if (KrepapiChannels.C2S_CLIENT_INFO.equals(channel)) {
             onClientInfo(player, message);
         } else if (KrepapiChannels.C2S_KEY_ACTION.equals(channel)) {
