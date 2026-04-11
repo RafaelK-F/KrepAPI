@@ -126,6 +126,8 @@ Reference implementations **do not send** `s2c_mouse_capture` unless the client 
 | `MAX_RAW_CAPTURE_KEYS` | 256 | GLFW keys in `s2c_raw_capture` whitelist |
 | `MAX_INTERCEPT_ENTRIES` | 32 | rows in `s2c_intercept_keys` |
 
+**Strict framing:** every `ProtocolMessages.decode*` entry point requires the byte array to end exactly after the last field; any trailing bytes raise `IllegalArgumentException` (no tolerant ignore of slack data).
+
 Mouse capture / action payloads use a small internal encoded-size cap in `ProtocolMessages` (same style as raw capture). Floats use IEEE 754 binary32, big-endian.
 
 Encoded `s2c_bindings` is rejected if the computed size exceeds a large internal cap (50 MiB) to bound allocations. Fabric `PacketCodec` paths use the same string maxima.

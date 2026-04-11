@@ -174,6 +174,13 @@ public final class ProtocolMessages {
         return ByteBuffer.allocate((int) need);
     }
 
+    /** Rejects payloads with bytes after the last field (strict framing). */
+    private static void requireFullyConsumed(ByteBuffer buf, String context) {
+        if (buf.hasRemaining()) {
+            throw new IllegalArgumentException("trailing bytes after " + context + ": " + buf.remaining());
+        }
+    }
+
     public static byte[] encodeHello(Hello msg) {
         long need = (long) ProtocolBuf.varIntEncodedSize(msg.protocolVersion())
                 + 1L
@@ -196,6 +203,7 @@ public final class ProtocolMessages {
         byte flags = (byte) ProtocolBuf.readUnsignedByte(buf);
         String min = ProtocolBuf.readUtf(buf);
         long nonce = ProtocolBuf.readLong(buf);
+        requireFullyConsumed(buf, "hello");
         return new Hello(pv, flags, min, nonce);
     }
 
@@ -221,6 +229,7 @@ public final class ProtocolMessages {
         String mv = ProtocolBuf.readUtf(buf);
         int cap = ProtocolBuf.readVarInt(buf);
         long nonce = ProtocolBuf.readLong(buf);
+        requireFullyConsumed(buf, "client_info");
         return new ClientInfo(pv, mv, cap, nonce);
     }
 
@@ -270,6 +279,7 @@ public final class ProtocolMessages {
             String cat = ProtocolBuf.readUtf(buf, MAX_CATEGORY_UTF8_BYTES);
             list.add(new BindingEntry(id, name, key, ov, cat));
         }
+        requireFullyConsumed(buf, "bindings_sync");
         return new BindingsSync(List.copyOf(list));
     }
 
@@ -294,6 +304,7 @@ public final class ProtocolMessages {
         byte phase = (byte) ProtocolBuf.readUnsignedByte(buf);
         requireValidKeyActionPhase(phase);
         int seq = ProtocolBuf.readVarInt(buf);
+        requireFullyConsumed(buf, "key_action");
         return new KeyAction(id, phase, seq);
     }
 
@@ -343,6 +354,7 @@ public final class ProtocolMessages {
         for (int i = 0; i < n; i++) {
             keys.add(ProtocolBuf.readVarInt(buf));
         }
+        requireFullyConsumed(buf, "raw_capture");
         return new RawCaptureConfig(enabled, mode, consumeVanilla, List.copyOf(keys));
     }
 
@@ -371,6 +383,7 @@ public final class ProtocolMessages {
         byte action = (byte) ProtocolBuf.readUnsignedByte(buf);
         int modifiers = ProtocolBuf.readVarInt(buf);
         int seq = ProtocolBuf.readVarInt(buf);
+        requireFullyConsumed(buf, "raw_key");
         return new RawKeyEvent(key, scancode, action, modifiers, seq);
     }
 
@@ -411,6 +424,7 @@ public final class ProtocolMessages {
             boolean block = ProtocolBuf.readUnsignedByte(buf) != 0;
             list.add(new InterceptEntry(slot, block));
         }
+        requireFullyConsumed(buf, "intercept_keys");
         return new InterceptKeysSync(List.copyOf(list));
     }
 
@@ -434,6 +448,7 @@ public final class ProtocolMessages {
         boolean enabled = ProtocolBuf.readUnsignedByte(buf) != 0;
         byte flags = (byte) ProtocolBuf.readUnsignedByte(buf);
         boolean consumeVanilla = ProtocolBuf.readUnsignedByte(buf) != 0;
+        requireFullyConsumed(buf, "mouse_capture");
         return new MouseCaptureConfig(enabled, flags, consumeVanilla);
     }
 
@@ -501,6 +516,7 @@ public final class ProtocolMessages {
             cx = ProtocolBuf.readFloat(buf);
             cy = ProtocolBuf.readFloat(buf);
         }
+        requireFullyConsumed(buf, "mouse_action");
         return new MouseActionEvent(kind, seq, button, glfwAction, modifiers, sx, sy, extras, cx, cy);
     }
 }

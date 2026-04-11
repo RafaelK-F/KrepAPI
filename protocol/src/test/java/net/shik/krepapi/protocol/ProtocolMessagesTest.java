@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,20 @@ class ProtocolMessagesTest {
         byte[] enc = ProtocolMessages.encodeClientInfo(msg);
         ProtocolMessages.ClientInfo dec = ProtocolMessages.decodeClientInfo(enc);
         assertEquals(longVer, dec.modVersion());
+    }
+
+    @Test
+    void decodeClientInfoRejectsTrailingBytes() {
+        byte[] enc = ProtocolMessages.encodeClientInfo(new ProtocolMessages.ClientInfo(2, "mod", 0, 1L));
+        byte[] padded = Arrays.copyOf(enc, enc.length + 1);
+        assertThrows(IllegalArgumentException.class, () -> ProtocolMessages.decodeClientInfo(padded));
+    }
+
+    @Test
+    void decodeKeyActionRejectsTrailingBytes() {
+        byte[] enc = ProtocolMessages.encodeKeyAction(new ProtocolMessages.KeyAction("x", ProtocolMessages.KeyAction.PHASE_PRESS, 9));
+        byte[] padded = Arrays.copyOf(enc, enc.length + 2);
+        assertThrows(IllegalArgumentException.class, () -> ProtocolMessages.decodeKeyAction(padded));
     }
 
     @Test
