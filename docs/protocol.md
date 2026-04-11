@@ -288,3 +288,29 @@ Paper sends the same bytes via `Player.sendPluginMessage(plugin, channel, byte[]
 **Raw keys (`c2s_raw_key`):** Paper logs them similarly. Fabric mods can use [`KrepapiFabricServerNetworking.registerRawKeyListener`](https://github.com/RafaelK-F/KrepAPI/blob/main/fabric-1-21/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java). Rate-limit aggressively on the server; treat payloads as untrusted and privacy-sensitive. Listener dispatch uses the same **`catch(Throwable)`** per callback as key actions (isolation between mods).
 
 **Mouse (`c2s_mouse_action`):** Paper logs them similarly. Fabric mods can use [`KrepapiFabricServerNetworking.registerMouseActionListener`](https://github.com/RafaelK-F/KrepAPI/blob/main/fabric-1-21/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java). Use [`KrepapiFabricServerNetworking.sendMouseCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/fabric-1-21/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java) or Paper [`KrepapiPaperPlugin.sendMouseCaptureConfig`](https://github.com/RafaelK-F/KrepAPI/blob/main/paper-plugin/src/main/java/net/shik/krepapi/paper/KrepapiPaperPlugin.java); both no-op unless the client reported `SERVER_MOUSE_CAPTURE`. After a successful handshake, capabilities are available as [`KrepapiFabricServerNetworking.getClientCapabilities`](https://github.com/RafaelK-F/KrepAPI/blob/main/fabric-1-21/src/main/java/net/shik/krepapi/server/KrepapiFabricServerNetworking.java) (Fabric) or [`KrepapiPaperPlugin.getClientCapabilities`](https://github.com/RafaelK-F/KrepAPI/blob/main/paper-plugin/src/main/java/net/shik/krepapi/paper/KrepapiPaperPlugin.java) (Paper). Rate-limit and treat as untrusted / privacy-sensitive (cursor position). Same **`catch(Throwable)`** isolation per listener as for key and raw-key callbacks.
+
+## Optional follow-ups
+
+### Runtime QA: bindings updates and disconnect (duplicate / leak check)
+
+The reference Fabric client clears previous server `KeyMapping`s before applying a new `s2c_bindings` (`ServerBindingManager.applyBindings` → `clear`) and again on play disconnect (`ClientPlayConnectionEvents.DISCONNECT` → `ServerBindingManager.clear`). **Suggested manual checks** (per supported Minecraft line):
+
+1. Join a server that sends `s2c_bindings` with a few rows; open **Options → Controls** and note KrepAPI rows and category grouping.
+2. Have the server send a **second** `s2c_bindings` with a changed set (e.g. remove one `actionId`, add another, change `displayName` / `category`). Re-open Controls: expect **no duplicate** rows for the same `actionId`, removed keys gone, labels updated.
+3. **Disconnect** (or kick) back to title; open Controls again: expect **no** leftover server binding rows for the disconnected session.
+4. **Reconnect** and confirm a normal hello + bindings cycle.
+
+Automated coverage here is limited (client KeyMapping registries are environment-heavy); this checklist guards against regressions in unregister paths or ordering.
+
+### Open spec decision: `displayName` / `category` on `s2c_bindings`
+
+**Today:** The wire format includes `displayName` and `category` for each row. The reference **Fabric** client uses them for the controls UI (`KeyMapping` label + `KeyMapping.Category`, plus `ServerBindingLabels` language injection); see [`docs/client-api.md`](client-api.md). Paper and other producers only need the bytes on the wire; semantics for non-Fabric consumers are not enforced by `protocol`.
+
+**Decision (for a future protocol bump or wiki note):**
+
+| Direction | Summary |
+| --- | --- |
+| **Keep in spec** | Treat labels as part of the contract: any compliant client that renders server bindings should map these fields similarly (or document a minimal subset, e.g. `displayName` required, `category` optional with default). |
+| **Narrow or remove** | If most integrations only need `actionId` + `defaultKey` + `overrideVanilla`, consider a slimmer packet or optional fields in a **new protocol version** (breaking change; coordinate `KrepapiProtocolVersion` and both Fabric lines). |
+
+Record the chosen direction in this doc and in [`KrepapiProtocolVersion`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiProtocolVersion.java) release notes when decided.

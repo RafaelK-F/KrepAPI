@@ -73,7 +73,7 @@ That happens while Loom fetches Minecraft or related files (Mojang / Fabric / li
 
 In-repo:
 
-- [Wire protocol](docs/protocol.md)
+- [Wire protocol](docs/protocol.md) — includes [optional follow-ups](docs/protocol.md#optional-follow-ups) (manual bindings QA, open `displayName`/`category` spec choice)
 - [Paper plugin](docs/paper-plugin.md)
 - [Client API](docs/client-api.md)
 
