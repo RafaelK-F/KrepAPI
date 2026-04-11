@@ -20,6 +20,9 @@
     ],
     "main": [
       "net.shik.krepapi.Krepapi"
+    ],
+    "modmenu": [
+      "net.shik.krepapi.client.KrepapiModMenuIntegration"
     ]
   },
   "mixins": [
