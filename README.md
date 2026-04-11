@@ -1,6 +1,6 @@
 # KrepAPI
 
-[![mod-plugin](https://cdn.shik.work/assets/banners/mod-available-on-modrinth-r50.png)](https://modrinth.com/mod/krepapi)
+[![mod-plugin](https://cdn.shik.work/assets/banners/.png/mod-available-on-modrinth-r50.png)](https://modrinth.com/mod/krepapi)
 
 Fabric client bridge for servers: custom key bindings synced from the host, optional raw-key hooks for addons, and a handshake so Paper/Fabric servers can require this mod. Install only on servers that use KrepAPI. Needs Fabric API.
 
