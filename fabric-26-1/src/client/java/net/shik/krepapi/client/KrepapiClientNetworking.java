@@ -24,11 +24,17 @@ public final class KrepapiClientNetworking {
                     .getModContainer("krepapi")
                     .map(c -> c.getMetadata().getVersion().getFriendlyString())
                     .orElse("0.0.0");
+            String serverAddress = "";
+            if (context.client().getCurrentServer() != null) {
+                serverAddress = context.client().getCurrentServer().ip;
+            }
+            KrepapiDebugLog.beginSession(serverAddress, modVersion, KrepapiProtocolVersion.CURRENT);
             int caps = KrepapiCapabilities.KEY_OVERRIDE
                     | KrepapiCapabilities.RAW_KEYS
                     | KrepapiCapabilities.SERVER_RAW_CAPTURE
                     | KrepapiCapabilities.INTERCEPT_KEYS
                     | KrepapiCapabilities.SERVER_MOUSE_CAPTURE;
+            KrepapiDebugLog.handshakeSent(KrepapiProtocolVersion.CURRENT, caps, modVersion);
             ClientPlayNetworking.send(new KrepapiClientInfoC2SPayload(
                     KrepapiProtocolVersion.CURRENT,
                     modVersion,
@@ -58,6 +64,7 @@ public final class KrepapiClientNetworking {
         });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            KrepapiDebugLog.endSession("disconnect");
             client.execute(() -> ServerBindingManager.clear(client));
             RawCaptureState.clear();
             MouseCaptureState.clear();

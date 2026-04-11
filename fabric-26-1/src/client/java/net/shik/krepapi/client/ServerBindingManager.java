@@ -48,6 +48,7 @@ public final class ServerBindingManager {
             ACTIVE.put(e.actionId(), mapping);
         }
         KrepapiKeyPipeline.setServerOverrideBindings(unique);
+        KrepapiDebugLog.bindingsApplied(unique.stream().map(ProtocolMessages.BindingEntry::actionId).toList());
     }
 
     public static void clear(Minecraft client) {
@@ -80,6 +81,8 @@ public final class ServerBindingManager {
 
     private static void sendKeyAction(String actionId, byte phase) {
         int seq = SEQUENCE.incrementAndGet();
+        KrepapiDebugLog.keyActionSent(actionId,
+                phase == ProtocolMessages.KeyAction.PHASE_PRESS ? "press" : "release", seq);
         ClientPlayNetworking.send(new KrepapiKeyActionC2SPayload(actionId, phase, seq));
     }
 

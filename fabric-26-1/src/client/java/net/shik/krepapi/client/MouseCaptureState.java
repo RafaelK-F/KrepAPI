@@ -22,11 +22,13 @@ public final class MouseCaptureState {
     public static void apply(ProtocolMessages.MouseCaptureConfig config) {
         if (!config.enabled()) {
             clear();
+            KrepapiDebugLog.mouseCaptureApplied(false, (byte) 0, false);
             return;
         }
         enabled = true;
         flags = config.flags();
         consumeVanilla = config.consumeVanilla();
+        KrepapiDebugLog.mouseCaptureApplied(true, config.flags(), config.consumeVanilla());
     }
 
     public static void clear() {
@@ -60,6 +62,7 @@ public final class MouseCaptureState {
             }
         }
         int seq = SEQUENCE.incrementAndGet();
+        KrepapiDebugLog.mouseActionSent("button", button, glfwAction, 0f, 0f, seq);
         var ev = new ProtocolMessages.MouseActionEvent(
                 ProtocolMessages.MOUSE_ACTION_KIND_BUTTON,
                 seq,
@@ -101,6 +104,7 @@ public final class MouseCaptureState {
             }
         }
         int seq = SEQUENCE.incrementAndGet();
+        KrepapiDebugLog.mouseActionSent("scroll", 0, 0, (float) horizontal, (float) vertical, seq);
         var ev = new ProtocolMessages.MouseActionEvent(
                 ProtocolMessages.MOUSE_ACTION_KIND_SCROLL,
                 seq,

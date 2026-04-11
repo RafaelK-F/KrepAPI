@@ -25,6 +25,7 @@ public final class RawCaptureState {
     public static void apply(ProtocolMessages.RawCaptureConfig config) {
         if (!config.enabled() || config.mode() == ProtocolMessages.RAW_CAPTURE_MODE_OFF) {
             clear();
+            KrepapiDebugLog.rawCaptureApplied(false, ProtocolMessages.RAW_CAPTURE_MODE_OFF, false, java.util.List.of());
             return;
         }
         synchronized (WHITELIST) {
@@ -36,6 +37,7 @@ public final class RawCaptureState {
                 WHITELIST.addAll(config.whitelistKeys());
             }
         }
+        KrepapiDebugLog.rawCaptureApplied(true, config.mode(), config.consumeVanilla(), config.whitelistKeys());
     }
 
     public static void clear() {
@@ -69,6 +71,7 @@ public final class RawCaptureState {
             }
         }
         int seq = SEQUENCE.incrementAndGet();
+        KrepapiDebugLog.rawKeySent(key, scancode, glfwAction, seq);
         ClientPlayNetworking.send(new KrepapiRawKeyC2SPayload(key, scancode, (byte) glfwAction, modifiers, seq));
         return cv;
     }

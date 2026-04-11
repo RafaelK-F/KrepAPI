@@ -14,3 +14,7 @@ send-hello-on-join: true
 
 # Example bindings pushed after successful handshake (GLFW key codes, e.g. 71 = G).
 example-bindings: true
+
+# Enable debug logging for all KrepAPI events (handshake, key/mouse/raw actions).
+# Also creates an NDJSON file in plugins/KrepAPI/debug-<timestamp>.json.
+debug-logging: false

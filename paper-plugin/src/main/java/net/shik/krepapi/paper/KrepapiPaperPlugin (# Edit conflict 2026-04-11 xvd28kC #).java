@@ -249,13 +249,6 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
                 nonce
         ));
         player.sendPluginMessage(this, KrepapiChannels.S2C_HELLO, payload);
-        debug("Handshake begin: " + player.getName()
-                + " effectiveMin=" + effectiveMin + " flags=" + flags);
-        debugJson("handshake_begin",
-                "\"player\":" + jstr(player.getName())
-                        + ",\"uuid\":\"" + player.getUniqueId() + "\""
-                        + ",\"effectiveMin\":" + jstr(effectiveMin)
-                        + ",\"flags\":" + flags);
 
         long delay = getConfig().getLong("handshake-timeout-ticks", 200L);
         if (getConfig().getBoolean("require-krepapi", true)) {
@@ -302,10 +295,6 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         UUID id = event.getPlayer().getUniqueId();
-        debug("Disconnect: " + event.getPlayer().getName());
-        debugJson("disconnect",
-                "\"player\":" + jstr(event.getPlayer().getName())
-                        + ",\"uuid\":\"" + id + "\"");
         pending.remove(id);
         clientCapabilities.remove(id);
     }
@@ -339,8 +328,6 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
             return;
         }
         if (info.protocolVersion() != KrepapiProtocolVersion.CURRENT) {
-            debug("Kick " + player.getName() + ": PROTOCOL_MISMATCH (client="
-                    + info.protocolVersion() + " server=" + KrepapiProtocolVersion.CURRENT + ")");
             pending.remove(player.getUniqueId());
             player.kick(Component.text(KrepapiKickReasons.PROTOCOL_MISMATCH));
             return;
@@ -351,8 +338,6 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
                 h.constraintsSnapshot
         );
         if (fail != null) {
-            debug("Kick " + player.getName() + ": version check failed ("
-                    + fail.reason() + ") modVersion=" + info.modVersion());
             pending.remove(player.getUniqueId());
             player.kick(Component.text(KrepapiKickReasons.forVersionCheckFailure(fail)));
             return;
@@ -377,8 +362,14 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
                 case ProtocolMessages.KeyAction.PHASE_RELEASE -> "release";
                 default -> "unknown(" + a.phase() + ")";
             };
-            getLogger().info("[KrepAPI] " + player.getName() + " key " + a.actionId()
+            debug(player.getName() + " key_action actionId=" + a.actionId()
                     + " phase=" + phaseName + " seq=" + a.sequence());
+            debugJson("key_action",
+                    "\"player\":" + jstr(player.getName())
+                            + ",\"uuid\":\"" + player.getUniqueId() + "\""
+                            + ",\"actionId\":" + jstr(a.actionId())
+                            + ",\"phase\":" + jstr(phaseName)
+                            + ",\"seq\":" + a.sequence());
         } catch (RuntimeException ex) {
             getLogger().warning("Bad key_action from " + player.getName());
         }
@@ -393,8 +384,15 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
                 case 2 -> "repeat";
                 default -> "unknown(" + e.glfwAction() + ")";
             };
-            getLogger().info("[KrepAPI] " + player.getName() + " raw_key key=" + e.key()
+            debug(player.getName() + " raw_key key=" + e.key()
                     + " scancode=" + e.scancode() + " action=" + actionName + " seq=" + e.sequence());
+            debugJson("raw_key",
+                    "\"player\":" + jstr(player.getName())
+                            + ",\"uuid\":\"" + player.getUniqueId() + "\""
+                            + ",\"key\":" + e.key()
+                            + ",\"scancode\":" + e.scancode()
+                            + ",\"action\":" + jstr(actionName)
+                            + ",\"seq\":" + e.sequence());
         } catch (RuntimeException ex) {
             getLogger().warning("Bad raw_key from " + player.getName());
         }
@@ -409,27 +407,13 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
                     case 1 -> "press";
                     default -> "unknown(" + e.glfwAction() + ")";
                 };
-                debug(player.getName() + " mouse_action button=" + e.button()
+                getLogger().info("[KrepAPI] " + player.getName() + " mouse_action button=" + e.button()
                         + " action=" + actionName + " mods=" + e.modifiers() + " seq=" + e.sequence()
                         + " extras=" + e.extras() + " cursor=(" + e.cursorX() + "," + e.cursorY() + ")");
-                debugJson("mouse_action",
-                        "\"player\":" + jstr(player.getName())
-                                + ",\"uuid\":\"" + player.getUniqueId() + "\""
-                                + ",\"kind\":\"button\""
-                                + ",\"button\":" + e.button()
-                                + ",\"glfwAction\":" + jstr(actionName)
-                                + ",\"seq\":" + e.sequence());
             } else if (e.kind() == ProtocolMessages.MOUSE_ACTION_KIND_SCROLL) {
-                debug(player.getName() + " mouse_action scroll=("
+                getLogger().info("[KrepAPI] " + player.getName() + " mouse_action scroll=("
                         + e.scrollDeltaX() + "," + e.scrollDeltaY() + ") seq=" + e.sequence()
                         + " extras=" + e.extras() + " cursor=(" + e.cursorX() + "," + e.cursorY() + ")");
-                debugJson("mouse_action",
-                        "\"player\":" + jstr(player.getName())
-                                + ",\"uuid\":\"" + player.getUniqueId() + "\""
-                                + ",\"kind\":\"scroll\""
-                                + ",\"scrollX\":" + e.scrollDeltaX()
-                                + ",\"scrollY\":" + e.scrollDeltaY()
-                                + ",\"seq\":" + e.sequence());
             }
         } catch (RuntimeException ex) {
             getLogger().warning("Bad mouse_action from " + player.getName());

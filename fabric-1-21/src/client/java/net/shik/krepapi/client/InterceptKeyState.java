@@ -26,6 +26,7 @@ public final class InterceptKeyState {
                 }
             }
         }
+        KrepapiDebugLog.interceptKeysApplied(sync.entries().size());
     }
 
     public static void clear() {
