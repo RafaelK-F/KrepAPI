@@ -274,6 +274,7 @@ public final class ProtocolMessages {
     }
 
     public static byte[] encodeKeyAction(KeyAction msg) {
+        requireValidKeyActionPhase(msg.phase());
         long need = (long) ProtocolBuf.utfEncodedSize(msg.actionId(), MAX_ACTION_ID_UTF8_BYTES)
                 + 1L
                 + (long) ProtocolBuf.varIntEncodedSize(msg.sequence());
@@ -291,8 +292,15 @@ public final class ProtocolMessages {
         ByteBuffer buf = ByteBuffer.wrap(data);
         String id = ProtocolBuf.readUtf(buf, MAX_ACTION_ID_UTF8_BYTES);
         byte phase = (byte) ProtocolBuf.readUnsignedByte(buf);
+        requireValidKeyActionPhase(phase);
         int seq = ProtocolBuf.readVarInt(buf);
         return new KeyAction(id, phase, seq);
+    }
+
+    private static void requireValidKeyActionPhase(byte phase) {
+        if (phase != KeyAction.PHASE_PRESS && phase != KeyAction.PHASE_RELEASE) {
+            throw new IllegalArgumentException("invalid key action phase: " + phase);
+        }
     }
 
     public static byte[] encodeRawCaptureConfig(RawCaptureConfig msg) {

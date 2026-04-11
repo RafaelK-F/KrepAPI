@@ -77,6 +77,26 @@ class ProtocolMessagesTest {
     }
 
     @Test
+    void decodeKeyActionRejectsInvalidPhase() {
+        ByteBuffer buf = ByteBuffer.allocate(32);
+        ProtocolBuf.writeUtf(buf, "a", ProtocolMessages.MAX_ACTION_ID_UTF8_BYTES);
+        ProtocolBuf.writeByte(buf, (byte) 7);
+        ProtocolBuf.writeVarInt(buf, 1);
+        buf.flip();
+        byte[] data = new byte[buf.remaining()];
+        buf.get(data);
+        assertThrows(IllegalArgumentException.class, () -> ProtocolMessages.decodeKeyAction(data));
+    }
+
+    @Test
+    void encodeKeyActionRejectsInvalidPhase() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ProtocolMessages.encodeKeyAction(new ProtocolMessages.KeyAction("a", (byte) 2, 1))
+        );
+    }
+
+    @Test
     void keyActionRoundTripPressAndRelease() {
         ProtocolMessages.KeyAction press = new ProtocolMessages.KeyAction("open_menu", ProtocolMessages.KeyAction.PHASE_PRESS, 1);
         byte[] encPress = ProtocolMessages.encodeKeyAction(press);
