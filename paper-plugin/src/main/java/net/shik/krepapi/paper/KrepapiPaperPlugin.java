@@ -59,6 +59,7 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         getServer().getMessenger().unregisterIncomingPluginChannel(this, KrepapiChannels.C2S_RAW_KEY);
         getServer().getMessenger().unregisterIncomingPluginChannel(this, KrepapiChannels.C2S_MOUSE_ACTION);
         unregisterOutgoing();
+        pending.clear();
         constraintsByPlugin.clear();
         clientCapabilities.clear();
     }
