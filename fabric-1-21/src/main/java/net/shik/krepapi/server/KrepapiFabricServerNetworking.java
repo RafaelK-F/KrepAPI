@@ -116,9 +116,10 @@ public final class KrepapiFabricServerNetworking {
 
     public static void register() {
         try {
-            KrepapiVersionRequirement.parse(settings.minimumModVersion.trim());
+            KrepapiVersionPolicy.validateRequirements(settings.minimumModVersion, snapshotConstraints());
         } catch (IllegalArgumentException ex) {
-            LOGGER.error("Invalid KrepAPI minimumModVersion in KrepapiFabricServerSettings: {}", ex.getMessage());
+            LOGGER.error("Invalid KrepAPI version requirements: {}", ex.getMessage());
+            throw new IllegalStateException("KrepAPI server version requirements are misconfigured.", ex);
         }
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
