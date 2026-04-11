@@ -259,8 +259,8 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
         if (h == null || h.nonce != info.challengeNonce()) {
             return;
         }
-        h.answered = true;
         if (info.protocolVersion() != KrepapiProtocolVersion.CURRENT) {
+            pending.remove(player.getUniqueId());
             player.kick(Component.text(KrepapiKickReasons.PROTOCOL_MISMATCH));
             return;
         }
@@ -270,9 +270,11 @@ public final class KrepapiPaperPlugin extends JavaPlugin implements Listener, Pl
                 h.constraintsSnapshot
         );
         if (fail != null) {
+            pending.remove(player.getUniqueId());
             player.kick(Component.text(KrepapiKickReasons.forVersionCheckFailure(fail)));
             return;
         }
+        h.answered = true;
         clientCapabilities.put(player.getUniqueId(), info.capabilities());
     }
 
