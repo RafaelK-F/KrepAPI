@@ -37,12 +37,13 @@ There are two layers: a wire **handshake** (5-byte prefix: magic `0x4B` + schema
 | Module | Role |
 |--------|------|
 | `:protocol` | Channel ids, varint/UTF helpers, `ProtocolMessages` encode/decode (no Minecraft dependency). |
-| `:fabric-1-21` | Fabric mod for **1.21.x** (payloads, mixins, client/server networking). |
-| `:fabric-26-1` | Fabric mod for **26.1.x** (same features; 26.1 Fabric API / Loom wiring). |
+| `:fabric-common` | **Shared Java sources** (no separate Minecraft compile): `src/main/java` and `src/client/java` are extra source roots for **both** `:fabric-1-21` and `:fabric-26-1`. Line-specific code stays in each line module (e.g. ModMenu, menu screens, `KrepapiFabricClientPlatformImpl`). |
+| `:fabric-1-21` | Fabric mod for **1.21.x** — resources, Shadow/MoulConfig, `fabric-loom-remap`. |
+| `:fabric-26-1` | Fabric mod for **26.1.x** — resources, `fabric-loom` 26.x. |
 | (root) | Aggregator only — no game sources here. |
 | `:paper-plugin` | Reference Paper plugin (plugin messages + `config.yml`) — only if `paper-plugin/` exists in the tree. |
 
-Fabric gameplay code lives **only** in `fabric-1-21/` and `fabric-26-1/` (see `settings.gradle`). Keep them in sync when changing behaviour that applies to both Minecraft lines; do not add a second parallel tree.
+Gameplay logic shared across Minecraft lines lives under [`fabric-common/src/`](fabric-common/src/). API differences (e.g. `KeyBindingHelper` vs `KeyMappingHelper`, HUD draw types) are isolated in [`net.shik.krepapi.platform`](fabric-common/src/client/java/net/shik/krepapi/platform/KrepapiFabricClientPlatform.java) with a small implementation per line module.
 
 ## Build
 

@@ -23,6 +23,16 @@ loom {
     }
 }
 
+def fabricCommonJava = rootProject.file("fabric-common/src")
+sourceSets {
+    main {
+        java { srcDir(new File(fabricCommonJava, "main/java")) }
+    }
+    client {
+        java { srcDir(new File(fabricCommonJava, "client/java")) }
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version_26}"
 

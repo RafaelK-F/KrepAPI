@@ -1,0 +1,7 @@
+// Shared Java sources only — compiled inside fabric-1-21 and fabric-26-1 (each with its own Loom/Minecraft).
+// Do not apply java/loom here; no compileJava against Minecraft in this project.
+plugins {
+    id 'base'
+}
+
+description = 'Shared Fabric mod sources (cross-compiled into each Minecraft line module)'

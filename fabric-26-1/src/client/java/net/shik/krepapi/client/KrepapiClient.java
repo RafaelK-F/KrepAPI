@@ -1,4 +1,4 @@
-package net.shik.krepapi.client;
+﻿package net.shik.krepapi.client;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -10,6 +10,8 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
+import net.shik.krepapi.platform.KrepapiFabricClientPlatform;
+import net.shik.krepapi.platform.KrepapiFabricClientPlatformImpl;
 
 public class KrepapiClient implements ClientModInitializer {
 
@@ -17,6 +19,8 @@ public class KrepapiClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        KrepapiFabricClientPlatform.install(KrepapiFabricClientPlatformImpl.INSTANCE);
+
         ServerBindingManager.ensurePoolInitialized();
         KrepapiClientNetworking.register();
         ClientTickEvents.END_CLIENT_TICK.register(ServerBindingManager::tick);
@@ -29,16 +33,14 @@ public class KrepapiClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(KrepapiUpdateHud::tick);
         HudElementRegistry.attachElementAfter(
-                VanillaHudElements.BOSS_BAR, UPDATE_HUD_LAYER, KrepapiUpdateHud::extractRenderState);
+                VanillaHudElements.BOSS_BAR, UPDATE_HUD_LAYER, KrepapiUpdateHudOverlay::extractRenderState);
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
                 dispatcher.register(
                         ClientCommands.literal("krepapi")
                                 .then(ClientCommands.literal("menu")
                                         .executes(ctx -> {
-                                            Minecraft.getInstance().execute(() ->
-                                                    Minecraft.getInstance().setScreen(
-                                                            KrepapiMenuScreen26.create(null)));
+                                            Minecraft.getInstance().execute(KrepapiFabricClientPlatform::openKrepapiMenuScreen);
                                             return 1;
                                         })
                                 )

@@ -11,6 +11,7 @@ pluginManagement {
 
 rootProject.name = "KrepAPI"
 include("protocol")
+include("fabric-common")
 include("fabric-1-21")
 include("fabric-26-1")
 
