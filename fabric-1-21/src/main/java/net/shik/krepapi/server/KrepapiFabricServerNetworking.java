@@ -160,9 +160,9 @@ public final class KrepapiFabricServerNetworking {
             if (entry == null) {
                 return;
             }
-            if (payload.protocolVersion() != KrepapiProtocolVersion.CURRENT) {
-                debug("Kick " + player.getName().getString() + ": PROTOCOL_MISMATCH (client="
-                        + payload.protocolVersion() + " server=" + KrepapiProtocolVersion.CURRENT + ")");
+            if (!KrepapiProtocolVersion.isCurrentWire(payload.wire())) {
+                debug("Kick " + player.getName().getString() + ": PROTOCOL_MISMATCH (clientWire="
+                        + payload.wire() + " serverWire=" + KrepapiProtocolVersion.CURRENT_WIRE + ")");
                 player.connection.disconnect(Component.literal(KrepapiKickReasons.PROTOCOL_MISMATCH));
                 return;
             }
@@ -244,7 +244,7 @@ public final class KrepapiFabricServerNetworking {
             debug("Handshake begin: " + player.getName().getString()
                     + " effectiveMin=" + effectiveMin + " flags=" + flags);
             ServerPlayNetworking.send(player, new KrepapiHelloS2CPayload(
-                    KrepapiProtocolVersion.CURRENT,
+                    KrepapiProtocolVersion.CURRENT_WIRE,
                     flags,
                     effectiveMin,
                     nonce
@@ -258,14 +258,21 @@ public final class KrepapiFabricServerNetworking {
         });
     }
 
-    public static void sendBindings(ServerPlayer player, List<ProtocolMessages.BindingEntry> entries) {
-        List<ProtocolMessages.BindingEntry> deduped = ProtocolMessages.dedupeBindingEntriesLastWins(entries);
-        if (deduped.size() > ProtocolMessages.MAX_BINDING_ENTRIES) {
-            throw new IllegalArgumentException("too many binding entries: " + deduped.size());
+    public static void sendBindings(ServerPlayer player, ProtocolMessages.BindingsGridSync sync) {
+        ArrayList<String> titles = new ArrayList<>(ProtocolMessages.GRID_CATEGORY_SLOTS);
+        for (int i = 0; i < ProtocolMessages.GRID_CATEGORY_SLOTS; i++) {
+            String t = i < sync.categoryTitles().size() ? sync.categoryTitles().get(i) : "";
+            titles.add(t != null ? t : "");
         }
-        ArrayList<ProtocolMessages.BindingEntry> copy = new ArrayList<>(deduped);
-        copy.sort(Comparator.comparing(ProtocolMessages.BindingEntry::actionId));
-        ServerPlayNetworking.send(player, new KrepapiBindingsS2CPayload(copy));
+        List<ProtocolMessages.GridBindingCell> cells = ProtocolMessages.dedupeGridCellsLastWins(sync.cells());
+        if (cells.size() > ProtocolMessages.MAX_GRID_CELLS) {
+            throw new IllegalArgumentException("too many grid cells: " + cells.size());
+        }
+        ArrayList<ProtocolMessages.GridBindingCell> sorted = new ArrayList<>(cells);
+        sorted.sort(Comparator.comparing(ProtocolMessages.GridBindingCell::actionId));
+        ProtocolMessages.BindingsGridSync normalized =
+                new ProtocolMessages.BindingsGridSync(List.copyOf(titles), List.copyOf(sorted));
+        ServerPlayNetworking.send(player, new KrepapiBindingsS2CPayload(normalized));
     }
 
     public static void sendRawCaptureConfig(ServerPlayer player, ProtocolMessages.RawCaptureConfig config) {

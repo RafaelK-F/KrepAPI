@@ -1,0 +1,9 @@
+// Applied by fabric-* projects: embed repo license next to mod classes (same basename pattern as before).
+tasks.named('jar', Jar).configure {
+    def lic = rootProject.file('LICENSE.md')
+    if (lic.exists()) {
+        from(lic) {
+            rename { fn -> "${fn}_${project.base.archivesName.get()}" }
+        }
+    }
+}

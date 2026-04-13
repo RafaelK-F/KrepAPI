@@ -1,6 +1,6 @@
 # KrepAPI
 
-Fabric client mod for **Minecraft 1.21.4–1.21.11** (this repo’s default build targets **1.21.11** with Mojang mappings via Loom) plus a shared binary protocol for **server-driven key bindings**, **raw key and mouse events** with optional **vanilla blocking**, and an optional **handshake** so Paper or Fabric dedicated servers can require the mod. **Minecraft 26.x** needs a **separate** mod JAR built against 26.x; it is not the same file as the 1.21.x line. Versioning is **two-tier**: a wire **protocol version** (packet layout) and a SemVer **build version** for the client mod, with configurable and API-driven minimums on the server.
+Fabric client mod for **Minecraft 1.21.4–1.21.11** (this repo’s default build targets **1.21.11** with Mojang mappings via Loom) plus a shared binary protocol for **server-driven key bindings**, **raw key and mouse events** with optional **vanilla blocking**, and an optional **handshake** so Paper or Fabric dedicated servers can require the mod. **Minecraft 26.x** needs a **separate** mod JAR built against 26.x; it is not the same file as the 1.21.x line. Versioning is **two-tier**: a wire **handshake** (magic + schema + protocol semver **1.0.0**) and a SemVer **build version** for the client mod, with configurable and API-driven minimums on the server.
 
 ---
 
@@ -8,14 +8,16 @@ Fabric client mod for **Minecraft 1.21.4–1.21.11** (this repo’s default buil
 
 ```
 Player joins
-    └─► Paper sends       s2c_hello        (protocolVersion, minModVersion, nonce)
-            └─► Fabric replies             c2s_client_info  (version, capabilities, nonce echo)
-                    └─► Paper sends        s2c_bindings     (actionId list + default keys)
-                                └─► Fabric registers KeyMapping entries
+    └─► Paper sends       s2c_hello        (wire 1.0.0 prefix, minModVersion, nonce)
+            └─► Fabric replies             c2s_client_info  (wire 1.0.0 prefix, modVersion, capabilities, nonce echo)
+                    └─► Paper sends        s2c_bindings     (BindingsGridSync: titles + sparse cells)
+                                └─► Fabric reconfigures occupied grid KeyMappings (see Client API wiki / docs)
                                         └─► On press/release → c2s_key_action (actionId, phase, seq)
 ```
 
-Optional (protocol v2+): `s2c_raw_capture` enables `c2s_raw_key` (GLFW events); `s2c_intercept_keys` blocks well-known keys (Esc, F3, Tab, F1, F5) for vanilla while held/configured.
+The Fabric client **pre-registers** a **10×32** grid of key-bind slots at init (`krepapi.category.{c}.key.{k}` translation keys, categories `krepapi:s00` … `krepapi:s09`) and applies server cells with runtime language injection for display names and titles. Unoccupied slots and empty categories are hidden in the controls UI.
+
+Optional (protocol v2+): `s2c_raw_capture` enables `c2s_raw_key` (GLFW events); `s2c_intercept_keys` blocks well-known keys (Esc, F3, Tab, F1, F5) for vanilla while held/configured. Each grid cell may include optional **lore** (tooltip in controls).
 
 The server never touches GLFW directly; the client never exposes raw input without a server opt-in.
 

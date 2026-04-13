@@ -11,6 +11,10 @@ pluginManagement {
 
 rootProject.name = "KrepAPI"
 include("protocol")
-include("paper-plugin")
 include("fabric-1-21")
 include("fabric-26-1")
+
+// Optional: omit from lightweight clones / sparse checkouts without breaking configuration.
+if (file("paper-plugin/build.gradle").exists()) {
+    include("paper-plugin")
+}

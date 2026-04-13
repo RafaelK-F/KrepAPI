@@ -3,6 +3,10 @@ plugins {
     id 'maven-publish'
 }
 
+// Build off cloud-synced repo paths (Gradle 9 + Proton Drive). Override: -Pkrepapi.fabric26.buildDir=...
+def krep26Out = findProperty('krepapi.fabric26.buildDir')
+layout.buildDirectory.set(krep26Out != null ? file(krep26Out) : file("${System.getProperty('user.home')}/.krepapi/gradle-build/fabric-26-1"))
+
 base {
     archivesName = "${rootProject.archives_base_name}-mc26.1"
 }
@@ -17,9 +21,6 @@ loom {
             sourceSet sourceSets.client
         }
     }
-}
-
-repositories {
 }
 
 dependencies {
@@ -60,11 +61,7 @@ java {
     targetCompatibility = JavaVersion.VERSION_25
 }
 
-jar {
-    from("${rootProject.projectDir}/LICENSE") {
-        rename { "${it}_${project.base.archivesName.get()}" }
-    }
-}
+apply from: rootProject.file('gradle/fabric-license.gradle')
 
 publishing {
     publications {

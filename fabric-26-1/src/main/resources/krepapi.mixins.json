@@ -5,6 +5,11 @@
   "compatibilityLevel": "JAVA_25",
   "mixins": [],
   "client": [
+    "client.AbstractSelectionListInvoker",
+    "client.KeyBindsListCategoryEntryMixin",
+    "client.KeyBindsListKeyEntryAccessor",
+    "client.KeyBindsListKeyEntryMixin",
+    "client.KeyBindsScreenMixin",
     "client.KeyboardMixin",
     "client.MinecraftMixin",
     "client.MouseMixin",

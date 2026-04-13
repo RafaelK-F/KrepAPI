@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -15,9 +16,10 @@ class ProtocolMessagesTest {
     @Test
     void helloRoundTripWithMaxLengthMinModVersion() {
         String longVer = "x".repeat(ProtocolBuf.MAX_STRING);
-        ProtocolMessages.Hello msg = new ProtocolMessages.Hello(1, (byte) 0, longVer, 42L);
+        ProtocolMessages.Hello msg = new ProtocolMessages.Hello(KrepapiProtocolVersion.CURRENT_WIRE, (byte) 0, longVer, 42L);
         byte[] enc = ProtocolMessages.encodeHello(msg);
         ProtocolMessages.Hello dec = ProtocolMessages.decodeHello(enc);
+        assertEquals(KrepapiProtocolVersion.CURRENT_WIRE, dec.wire());
         assertEquals(longVer, dec.minModVersion());
         assertEquals(42L, dec.challengeNonce());
     }
@@ -25,17 +27,32 @@ class ProtocolMessagesTest {
     @Test
     void clientInfoRoundTripWithMaxLengthModVersion() {
         String longVer = "y".repeat(ProtocolBuf.MAX_STRING);
-        ProtocolMessages.ClientInfo msg = new ProtocolMessages.ClientInfo(1, longVer, 3, -1L);
+        ProtocolMessages.ClientInfo msg = new ProtocolMessages.ClientInfo(KrepapiProtocolVersion.CURRENT_WIRE, longVer, 3, -1L);
         byte[] enc = ProtocolMessages.encodeClientInfo(msg);
         ProtocolMessages.ClientInfo dec = ProtocolMessages.decodeClientInfo(enc);
+        assertEquals(KrepapiProtocolVersion.CURRENT_WIRE, dec.wire());
         assertEquals(longVer, dec.modVersion());
     }
 
     @Test
     void decodeClientInfoRejectsTrailingBytes() {
-        byte[] enc = ProtocolMessages.encodeClientInfo(new ProtocolMessages.ClientInfo(2, "mod", 0, 1L));
+        byte[] enc = ProtocolMessages.encodeClientInfo(
+                new ProtocolMessages.ClientInfo(KrepapiProtocolVersion.CURRENT_WIRE, "mod", 0, 1L));
         byte[] padded = Arrays.copyOf(enc, enc.length + 1);
         assertThrows(IllegalArgumentException.class, () -> ProtocolMessages.decodeClientInfo(padded));
+    }
+
+    @Test
+    void decodeHelloRejectsLegacyVarintOnlyLayout() {
+        ByteBuffer buf = ByteBuffer.allocate(512);
+        ProtocolBuf.writeVarInt(buf, 3);
+        ProtocolBuf.writeByte(buf, (byte) 0);
+        ProtocolBuf.writeUtf(buf, "1.0.0");
+        ProtocolBuf.writeLong(buf, 1L);
+        buf.flip();
+        byte[] data = new byte[buf.remaining()];
+        buf.get(data);
+        assertThrows(IllegalArgumentException.class, () -> ProtocolMessages.decodeHello(data));
     }
 
     @Test
@@ -46,40 +63,46 @@ class ProtocolMessagesTest {
     }
 
     @Test
-    void decodeBindingsRejectsExcessiveCount() {
-        ByteBuffer buf = ByteBuffer.allocate(8);
-        ProtocolBuf.writeVarInt(buf, ProtocolMessages.MAX_BINDING_ENTRIES + 1);
+    void decodeBindingsGridRejectsExcessiveCellCount() {
+        ByteBuffer buf = ByteBuffer.allocate(400);
+        buf.put(ProtocolMessages.BINDINGS_FORMAT_GRID_V1);
+        for (int i = 0; i < ProtocolMessages.GRID_CATEGORY_SLOTS; i++) {
+            ProtocolBuf.writeUtf(buf, "", ProtocolMessages.MAX_CATEGORY_TITLE_UTF8_BYTES);
+        }
+        ProtocolBuf.writeVarInt(buf, ProtocolMessages.MAX_GRID_CELLS + 1);
         buf.flip();
         byte[] data = new byte[buf.remaining()];
         buf.get(data);
-        assertThrows(IllegalArgumentException.class, () -> ProtocolMessages.decodeBindingsSync(data));
+        assertThrows(IllegalArgumentException.class, () -> ProtocolMessages.decodeBindingsGridSync(data));
     }
 
     @Test
-    void encodeBindingsRejectsTooManyEntries() {
-        List<ProtocolMessages.BindingEntry> entries = new ArrayList<>();
-        for (int i = 0; i < ProtocolMessages.MAX_BINDING_ENTRIES + 1; i++) {
-            entries.add(new ProtocolMessages.BindingEntry("a", "b", 0, false, "c"));
+    void encodeBindingsGridRejectsTooManyCells() {
+        List<ProtocolMessages.GridBindingCell> cells = new ArrayList<>();
+        for (int i = 0; i < ProtocolMessages.MAX_GRID_CELLS + 1; i++) {
+            cells.add(new ProtocolMessages.GridBindingCell(0, 0, "a", "b", 0, false, ""));
         }
+        List<String> titles = new ArrayList<>(Collections.nCopies(ProtocolMessages.GRID_CATEGORY_SLOTS, ""));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> ProtocolMessages.encodeBindingsSync(new ProtocolMessages.BindingsSync(entries))
+                () -> ProtocolMessages.encodeBindingsGridSync(new ProtocolMessages.BindingsGridSync(titles, cells))
         );
     }
 
     @Test
-    void dedupeBindingEntriesLastWinsKeepsLastPerActionIdInScanOrder() {
-        ProtocolMessages.BindingEntry x0 = new ProtocolMessages.BindingEntry("x", "first", 1, false, "c");
-        ProtocolMessages.BindingEntry y = new ProtocolMessages.BindingEntry("y", "y", 2, false, "c");
-        ProtocolMessages.BindingEntry x1 = new ProtocolMessages.BindingEntry("x", "second", 3, true, "d");
-        List<ProtocolMessages.BindingEntry> in = List.of(x0, y, x1);
-        List<ProtocolMessages.BindingEntry> out = ProtocolMessages.dedupeBindingEntriesLastWins(in);
+    void dedupeGridCellsLastWinsKeepsLastPerCellInScanOrder() {
+        ProtocolMessages.GridBindingCell x0 = new ProtocolMessages.GridBindingCell(0, 0, "x", "first", 1, false, "");
+        ProtocolMessages.GridBindingCell y = new ProtocolMessages.GridBindingCell(1, 0, "y", "y", 2, false, "");
+        ProtocolMessages.GridBindingCell x1 = new ProtocolMessages.GridBindingCell(0, 0, "x", "second", 3, true, "tip");
+        List<ProtocolMessages.GridBindingCell> in = List.of(x0, y, x1);
+        List<ProtocolMessages.GridBindingCell> out = ProtocolMessages.dedupeGridCellsLastWins(in);
         assertEquals(2, out.size());
         assertEquals(y, out.get(0));
         assertEquals(x1, out.get(1));
         assertEquals("second", out.get(1).displayName());
         assertEquals(3, out.get(1).defaultKey());
         assertEquals(true, out.get(1).overrideVanilla());
+        assertEquals("tip", out.get(1).lore());
     }
 
     @Test
@@ -144,21 +167,40 @@ class ProtocolMessagesTest {
     }
 
     @Test
-    void bindingsRoundTripAtMaxEntryCount() {
-        List<ProtocolMessages.BindingEntry> entries = new ArrayList<>();
-        for (int i = 0; i < ProtocolMessages.MAX_BINDING_ENTRIES; i++) {
-            entries.add(new ProtocolMessages.BindingEntry(
+    void bindingsGridRoundTripAtMaxCellCount() {
+        List<String> titles = new ArrayList<>(Collections.nCopies(ProtocolMessages.GRID_CATEGORY_SLOTS, ""));
+        List<ProtocolMessages.GridBindingCell> cells = new ArrayList<>();
+        for (int i = 0; i < ProtocolMessages.MAX_GRID_CELLS; i++) {
+            int cat = i / ProtocolMessages.GRID_KEYS_PER_CATEGORY;
+            int ks = i % ProtocolMessages.GRID_KEYS_PER_CATEGORY;
+            cells.add(new ProtocolMessages.GridBindingCell(
+                    cat,
+                    ks,
                     "id" + i,
                     "name",
                     i,
                     false,
-                    "cat"
+                    ""
             ));
         }
-        byte[] enc = ProtocolMessages.encodeBindingsSync(new ProtocolMessages.BindingsSync(entries));
-        ProtocolMessages.BindingsSync dec = ProtocolMessages.decodeBindingsSync(enc);
-        assertEquals(ProtocolMessages.MAX_BINDING_ENTRIES, dec.entries().size());
-        assertEquals("id0", dec.entries().getFirst().actionId());
+        byte[] enc = ProtocolMessages.encodeBindingsGridSync(new ProtocolMessages.BindingsGridSync(titles, cells));
+        ProtocolMessages.BindingsGridSync dec = ProtocolMessages.decodeBindingsGridSync(enc);
+        assertEquals(ProtocolMessages.MAX_GRID_CELLS, dec.cells().size());
+        assertEquals("id0", dec.cells().getFirst().actionId());
+    }
+
+    @Test
+    void bindingsGridRoundTripWithNonEmptyLore() {
+        List<String> titles = new ArrayList<>(Collections.nCopies(ProtocolMessages.GRID_CATEGORY_SLOTS, "T"));
+        var cells = List.of(
+                new ProtocolMessages.GridBindingCell(0, 0, "a", "A", 65, false, ""),
+                new ProtocolMessages.GridBindingCell(0, 1, "b", "B", 66, true, "Line one\nLine two"));
+        byte[] enc = ProtocolMessages.encodeBindingsGridSync(new ProtocolMessages.BindingsGridSync(titles, cells));
+        ProtocolMessages.BindingsGridSync dec = ProtocolMessages.decodeBindingsGridSync(enc);
+        assertEquals(2, dec.cells().size());
+        assertEquals("", dec.cells().get(0).lore());
+        assertEquals("Line one\nLine two", dec.cells().get(1).lore());
+        assertEquals("T", dec.categoryTitles().get(0));
     }
 
     @Test

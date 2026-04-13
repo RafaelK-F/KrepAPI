@@ -13,12 +13,8 @@ import net.minecraft.resources.Identifier;
 import net.shik.krepapi.protocol.ProtocolMessages;
 
 /**
- * Injects {@link ProtocolMessages.BindingEntry#displayName()} and category titles into the active client
- * {@code Language} string table so {@link net.minecraft.client.KeyMapping} translation keys resolve at runtime.
- * <p>
- * For each category {@link Identifier}, both {@code key.category.<ns>.<path>} and {@code key.categories.<ns>.<path>}
- * (path segments {@code /} → {@code .}) are set to the same string so controls grouping matches vanilla across
- * versions that look up either prefix.
+ * Injects grid row labels and category titles into the active client language map so {@link net.minecraft.client.KeyMapping}
+ * keys resolve at runtime.
  */
 final class ServerBindingLabels {
     private static final Set<String> INJECTED = new HashSet<>();
@@ -38,8 +34,8 @@ final class ServerBindingLabels {
         INJECTED.clear();
     }
 
-    static void apply(Minecraft client, List<ProtocolMessages.BindingEntry> entries) {
-        if (client == null || entries.isEmpty()) {
+    static void apply(Minecraft client, List<String> categoryTitles, List<ProtocolMessages.GridBindingCell> cells) {
+        if (client == null) {
             return;
         }
         Map<String, String> map = editableLanguageMap(client);
@@ -47,17 +43,23 @@ final class ServerBindingLabels {
             return;
         }
         Map<String, String> add = new HashMap<>();
-        for (ProtocolMessages.BindingEntry e : entries) {
-            String bindKey = ServerBindingManager.bindingStorageTranslationKey(e.actionId());
-            String row = e.displayName().isBlank() ? e.actionId() : e.displayName();
+        if (categoryTitles != null) {
+            for (int slot = 0; slot < ProtocolMessages.GRID_CATEGORY_SLOTS; slot++) {
+                String title = slot < categoryTitles.size() ? categoryTitles.get(slot) : "";
+                Identifier catId = Identifier.fromNamespaceAndPath("krepapi", String.format("s%02d", slot));
+                String suffix = catId.getNamespace() + "." + catId.getPath().replace('/', '.');
+                String catText = (title == null || title.isBlank()) ? defaultCategoryTitle(slot) : title.trim();
+                add.putIfAbsent("key.category." + suffix, catText);
+                add.putIfAbsent("key.categories." + suffix, catText);
+            }
+        }
+        for (ProtocolMessages.GridBindingCell e : cells) {
+            String bindKey = ServerBindingManager.gridTranslationKey(e.categorySlot(), e.keySlot());
+            String row = e.displayName().isBlank() ? e.actionId() : e.displayName().trim();
+            if (row.isBlank()) {
+                row = "KrepAPI " + e.categorySlot() + "/" + e.keySlot();
+            }
             add.put(bindKey, row);
-
-            Identifier cat = KeyMappingCompat.categoryIdentifierFromProtocol(e.category());
-            boolean hasRawCategory = e.category() != null && !e.category().isBlank();
-            String catText = hasRawCategory ? e.category().trim() : defaultCategoryTitle(cat);
-            String suffix = cat.getNamespace() + "." + cat.getPath().replace('/', '.');
-            add.putIfAbsent("key.category." + suffix, catText);
-            add.putIfAbsent("key.categories." + suffix, catText);
         }
         for (Map.Entry<String, String> en : add.entrySet()) {
             map.put(en.getKey(), en.getValue());
@@ -65,11 +67,8 @@ final class ServerBindingLabels {
         }
     }
 
-    private static String defaultCategoryTitle(Identifier cat) {
-        if ("krepapi".equals(cat.getNamespace()) && "server".equals(cat.getPath())) {
-            return "KrepAPI (this server)";
-        }
-        return cat.getNamespace() + "/" + cat.getPath();
+    private static String defaultCategoryTitle(int slot) {
+        return "KrepAPI (" + slot + ")";
     }
 
     private static Map<String, String> editableLanguageMap(Minecraft client) {

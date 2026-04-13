@@ -41,7 +41,7 @@ Other plugins can depend on the `:protocol` Gradle project (or copy the `net.shi
 | Key | Default | Description |
 | --- | --- | --- |
 | `require-krepapi` | `true` | Kick after `handshake-timeout-ticks` if no valid `c2s_client_info`. |
-| `minimum-mod-version` | `1.2.0` | One [build requirement expression](protocol.md) (section *Build requirement expressions*). Invalid value → **plugin disables on enable**. |
+| `minimum-mod-version` | `1.0.0` | One [build requirement expression](protocol.md) (section *Build requirement expressions*). Invalid value → **plugin disables on enable**. |
 | `handshake-timeout-ticks` | `200` | Timeout (20 ticks = 1 s). |
 | `send-hello-on-join` | `true` | Send `s2c_hello` on join. |
 | `example-bindings` | `true` | Push a sample binding after join. |
@@ -51,25 +51,25 @@ Other plugins can depend on the `:protocol` Gradle project (or copy the `net.shi
 **Default-style floor (allow this build and newer):**
 
 ```yaml
-minimum-mod-version: "1.2.0"
+minimum-mod-version: "1.0.0"
 ```
 
-**Allow only the 1.1 patch line (legacy clients on that line):**
+**Allow only the 1.0 patch line:**
 
 ```yaml
-minimum-mod-version: "1.1.x"
+minimum-mod-version: "1.0.x"
 ```
 
-**Explicit floor spelling (same as bare `1.2.0`):**
+**Explicit floor spelling (same as bare `1.0.0`):**
 
 ```yaml
-minimum-mod-version: "1.2.0>"
+minimum-mod-version: "1.0.0>"
 ```
 
 **Pin one exact build (rare; e.g. modpack lockstep):**
 
 ```yaml
-minimum-mod-version: "=1.2.0"
+minimum-mod-version: "=1.0.0"
 ```
 
 Invalid patterns (e.g. `1.x.2`) cause the plugin to fail at enable time with a console error.
@@ -101,10 +101,10 @@ public final class MyPlugin extends JavaPlugin {
             return;
         }
         KrepapiPaperVersionGate gate = krepapi.versionGate(this);
-        // Additional floor: client must be >= 1.3.0 for this plugin’s features
-        gate.requireMinimumBuildVersion("1.3.0");
+        // Additional floor: client must be >= 1.1.0 for this plugin’s features (example)
+        gate.requireMinimumBuildVersion("1.1.0");
         // Named constraint: better kick text if only this feature needs a higher build
-        gate.requireMinimumBuildVersionForFeature("my_emotes", "1.3.0");
+        gate.requireMinimumBuildVersionForFeature("my_emotes", "1.1.0");
     }
 }
 ```

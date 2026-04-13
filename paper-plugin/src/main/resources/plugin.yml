@@ -1,6 +1,0 @@
-name: KrepAPI-Paper
-version: '${version}'
-main: net.shik.krepapi.paper.KrepapiPaperPlugin
-api-version: '1.21.11'
-description: Reference Paper plugin for KrepAPI handshake, bindings, and key actions
-author: shik

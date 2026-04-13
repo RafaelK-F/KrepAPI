@@ -1,13 +1,11 @@
 {
+  "meta": {
+    "releaseLine": "1.0.0",
+    "legacyAlpha": "Paper plugin builds before 1.0.0 matched old mod lines (a1.x.x) and a different wire handshake; they are unsupported."
+  },
   "versions": {
-    "latest": "1.0.1",
+    "latest": "1.0.0",
     "list": {
-      /*"1.1.0": {
-        "1.21.4, 1.21.5, 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, 1.21.11, 26.1, 26.1.1": "KrepAPI-Plugin-1.1.0"
-      },*/
-      "1.0.1": {
-        "1.21.4, 1.21.5, 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, 1.21.11, 26.1, 26.1.1": "KrepAPI-Plugin-1.0.1"
-      },
       "1.0.0": {
         "1.21.4, 1.21.5, 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, 1.21.11, 26.1, 26.1.1": "KrepAPI-Plugin-1.0.0"
       }

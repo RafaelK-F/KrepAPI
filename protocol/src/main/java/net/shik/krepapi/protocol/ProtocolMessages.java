@@ -6,24 +6,48 @@ import java.util.HashMap;
 import java.util.List;
 
 /**
- * Binary layout shared by Fabric client, Fabric server, and Paper. Field order is stable per protocol version.
+ * Binary layout shared by Fabric client, Fabric server, and Paper. Handshake payloads begin with a fixed
+ * {@link KrepapiProtocolVersion#WIRE_MAGIC wire prefix}; field order after that prefix is stable for a given
+ * {@link WireHandshakeHeader#schema() schema} and semver triple.
  */
 public final class ProtocolMessages {
 
     public static final byte HELLO_FLAG_REQUIRE_RESPONSE = 1;
 
-    /** Maximum binding rows in one {@link BindingsSync} packet (encode and decode). */
-    public static final int MAX_BINDING_ENTRIES = 2048;
+    /** Number of fixed category sections on the client (slots {@code 0} … {@code #GRID_CATEGORY_SLOTS - 1}). */
+    public static final int GRID_CATEGORY_SLOTS = 10;
 
-    /** Maximum UTF-8 byte length for {@link BindingEntry#actionId()} and {@link KeyAction#actionId()}. */
-    public static final int MAX_ACTION_ID_UTF8_BYTES = 256;
+    /** Key rows per category (slots {@code 0} … {@code #GRID_KEYS_PER_CATEGORY - 1}). */
+    public static final int GRID_KEYS_PER_CATEGORY = 32;
 
-    /** Maximum UTF-8 byte length for {@link BindingEntry#category()}. */
-    public static final int MAX_CATEGORY_UTF8_BYTES = 256;
+    /** Total server-driven {@link KeyMapping} pool size ({@link #GRID_CATEGORY_SLOTS} × {@link #GRID_KEYS_PER_CATEGORY}). */
+    public static final int GRID_TOTAL_KEYS = GRID_CATEGORY_SLOTS * GRID_KEYS_PER_CATEGORY;
 
     /**
-     * Hard cap on encoded {@link BindingsSync} size (bytes). {@link #encodeBindingsSync} and {@link #decodeBindingsSync}
-     * use the same limit so decode budget matches encode.
+     * Linear index {@code 0 … GRID_TOTAL_KEYS - 1} for the client {@code KeyMapping} pool
+     * ({@code categorySlot} * {@link #GRID_KEYS_PER_CATEGORY} + {@code keySlot}).
+     */
+    public static int flatGridIndex(int categorySlot, int keySlot) {
+        return categorySlot * GRID_KEYS_PER_CATEGORY + keySlot;
+    }
+
+    /** First byte of {@link #encodeBindingsGridSync(BindingsGridSync)} payloads ({@code s2c_bindings}). */
+    public static final byte BINDINGS_FORMAT_GRID_V1 = 2;
+
+    /** Maximum cells in one {@link BindingsGridSync} packet (encode and decode). */
+    public static final int MAX_GRID_CELLS = GRID_TOTAL_KEYS;
+
+    /** Maximum UTF-8 byte length for {@link GridBindingCell#actionId()} and {@link KeyAction#actionId()}. */
+    public static final int MAX_ACTION_ID_UTF8_BYTES = 256;
+
+    /** Maximum UTF-8 byte length for category **titles** in {@link BindingsGridSync#categoryTitles()}. */
+    public static final int MAX_CATEGORY_TITLE_UTF8_BYTES = 256;
+
+    /** Maximum UTF-8 byte length for {@link GridBindingCell#lore()} (tooltip plain text; empty = no tooltip). */
+    public static final int MAX_LORE_UTF8_BYTES = 8192;
+
+    /**
+     * Hard cap on encoded {@link BindingsGridSync} size (bytes). Encode and decode use the same limit.
      */
     public static final long MAX_BINDINGS_SYNC_ENCODED_BYTES = 50_000_000L;
 
@@ -80,39 +104,60 @@ public final class ProtocolMessages {
     /** Perspective / reload slot (client handles both). */
     public static final int INTERCEPT_SLOT_F5 = 4;
 
-    public record Hello(int protocolVersion, byte flags, String minModVersion, long challengeNonce) {
+    public record Hello(WireHandshakeHeader wire, byte flags, String minModVersion, long challengeNonce) {
     }
 
-    public record ClientInfo(int protocolVersion, String modVersion, int capabilities, long challengeNonce) {
-    }
-
-    public record BindingEntry(String actionId, String displayName, int defaultKey, boolean overrideVanilla, String category) {
-    }
-
-    public record BindingsSync(List<BindingEntry> entries) {
+    public record ClientInfo(WireHandshakeHeader wire, String modVersion, int capabilities, long challengeNonce) {
     }
 
     /**
-     * Collapses duplicate {@link BindingEntry#actionId()} values: only the last occurrence in {@code entries} is kept,
-     * preserving the relative order of those surviving rows (same order as if duplicates were removed by scanning
-     * forward).
+     * One occupied cell in the {@value #GRID_CATEGORY_SLOTS}×{@value #GRID_KEYS_PER_CATEGORY} server binding grid.
      */
-    public static List<BindingEntry> dedupeBindingEntriesLastWins(List<BindingEntry> entries) {
-        if (entries.size() <= 1) {
-            return new ArrayList<>(entries);
+    public record GridBindingCell(
+            int categorySlot,
+            int keySlot,
+            String actionId,
+            String displayName,
+            int defaultKey,
+            boolean overrideVanilla,
+            String lore
+    ) {
+    }
+
+    /**
+     * Full {@code s2c_bindings} body: exactly {@value #GRID_CATEGORY_SLOTS} category titles (in slot order {@code 0…9};
+     * empty string = no custom title) plus a sparse list of {@link GridBindingCell}s.
+     */
+    public record BindingsGridSync(List<String> categoryTitles, List<GridBindingCell> cells) {
+    }
+
+    /**
+     * Collapses duplicate {@code (categorySlot, keySlot)}: only the last occurrence in {@code cells} is kept, preserving
+     * the relative order of surviving cells (forward scan).
+     */
+    public static List<GridBindingCell> dedupeGridCellsLastWins(List<GridBindingCell> cells) {
+        if (cells.size() <= 1) {
+            return new ArrayList<>(cells);
         }
-        HashMap<String, Integer> lastIndex = new HashMap<>();
-        for (int i = 0; i < entries.size(); i++) {
-            lastIndex.put(entries.get(i).actionId(), i);
+        HashMap<Long, Integer> lastIndex = new HashMap<>();
+        for (int i = 0; i < cells.size(); i++) {
+            GridBindingCell c = cells.get(i);
+            long key = gridCellKey(c.categorySlot(), c.keySlot());
+            lastIndex.put(key, i);
         }
-        ArrayList<BindingEntry> out = new ArrayList<>(lastIndex.size());
-        for (int i = 0; i < entries.size(); i++) {
-            BindingEntry e = entries.get(i);
-            if (lastIndex.get(e.actionId()) == i) {
-                out.add(e);
+        ArrayList<GridBindingCell> out = new ArrayList<>(lastIndex.size());
+        for (int i = 0; i < cells.size(); i++) {
+            GridBindingCell c = cells.get(i);
+            long key = gridCellKey(c.categorySlot(), c.keySlot());
+            if (lastIndex.get(key) == i) {
+                out.add(c);
             }
         }
         return out;
+    }
+
+    private static long gridCellKey(int categorySlot, int keySlot) {
+        return ((long) categorySlot << 32) ^ (keySlot & 0xffffffffL);
     }
 
     public record KeyAction(String actionId, byte phase, int sequence) {
@@ -182,13 +227,38 @@ public final class ProtocolMessages {
         }
     }
 
+    private static final int WIRE_PREFIX_BYTES = 5;
+
+    private static void writeWirePrefix(ByteBuffer buf, WireHandshakeHeader w) {
+        buf.put(KrepapiProtocolVersion.WIRE_MAGIC);
+        buf.put((byte) w.schema());
+        buf.put((byte) w.major());
+        buf.put((byte) w.minor());
+        buf.put((byte) w.patch());
+    }
+
+    private static WireHandshakeHeader readWirePrefix(ByteBuffer buf, String context) {
+        if (buf.remaining() < WIRE_PREFIX_BYTES) {
+            throw new IllegalArgumentException(context + ": expected wire prefix (" + WIRE_PREFIX_BYTES + " bytes)");
+        }
+        byte magic = buf.get();
+        if (magic != KrepapiProtocolVersion.WIRE_MAGIC) {
+            throw new IllegalArgumentException(context + ": unsupported wire layout (legacy client or corrupt packet)");
+        }
+        int schema = buf.get() & 0xFF;
+        int maj = buf.get() & 0xFF;
+        int min = buf.get() & 0xFF;
+        int pat = buf.get() & 0xFF;
+        return new WireHandshakeHeader(schema, maj, min, pat);
+    }
+
     public static byte[] encodeHello(Hello msg) {
-        long need = (long) ProtocolBuf.varIntEncodedSize(msg.protocolVersion())
+        long need = (long) WIRE_PREFIX_BYTES
                 + 1L
                 + (long) ProtocolBuf.utfEncodedSize(msg.minModVersion())
                 + 8L;
         ByteBuffer buf = allocateForEncode(need, "hello");
-        ProtocolBuf.writeVarInt(buf, msg.protocolVersion());
+        writeWirePrefix(buf, msg.wire());
         ProtocolBuf.writeByte(buf, msg.flags());
         ProtocolBuf.writeUtf(buf, msg.minModVersion());
         ProtocolBuf.writeLong(buf, msg.challengeNonce());
@@ -200,21 +270,21 @@ public final class ProtocolMessages {
 
     public static Hello decodeHello(byte[] data) {
         ByteBuffer buf = ByteBuffer.wrap(data);
-        int pv = ProtocolBuf.readVarInt(buf);
+        WireHandshakeHeader wire = readWirePrefix(buf, "hello");
         byte flags = (byte) ProtocolBuf.readUnsignedByte(buf);
         String min = ProtocolBuf.readUtf(buf);
         long nonce = ProtocolBuf.readLong(buf);
         requireFullyConsumed(buf, "hello");
-        return new Hello(pv, flags, min, nonce);
+        return new Hello(wire, flags, min, nonce);
     }
 
     public static byte[] encodeClientInfo(ClientInfo msg) {
-        long need = (long) ProtocolBuf.varIntEncodedSize(msg.protocolVersion())
+        long need = (long) WIRE_PREFIX_BYTES
                 + (long) ProtocolBuf.utfEncodedSize(msg.modVersion())
                 + (long) ProtocolBuf.varIntEncodedSize(msg.capabilities())
                 + 8L;
         ByteBuffer buf = allocateForEncode(need, "client_info");
-        ProtocolBuf.writeVarInt(buf, msg.protocolVersion());
+        writeWirePrefix(buf, msg.wire());
         ProtocolBuf.writeUtf(buf, msg.modVersion());
         ProtocolBuf.writeVarInt(buf, msg.capabilities());
         ProtocolBuf.writeLong(buf, msg.challengeNonce());
@@ -226,38 +296,50 @@ public final class ProtocolMessages {
 
     public static ClientInfo decodeClientInfo(byte[] data) {
         ByteBuffer buf = ByteBuffer.wrap(data);
-        int pv = ProtocolBuf.readVarInt(buf);
+        WireHandshakeHeader wire = readWirePrefix(buf, "client_info");
         String mv = ProtocolBuf.readUtf(buf);
         int cap = ProtocolBuf.readVarInt(buf);
         long nonce = ProtocolBuf.readLong(buf);
         requireFullyConsumed(buf, "client_info");
-        return new ClientInfo(pv, mv, cap, nonce);
+        return new ClientInfo(wire, mv, cap, nonce);
     }
 
-    public static byte[] encodeBindingsSync(BindingsSync msg) {
-        int n = msg.entries().size();
-        if (n > MAX_BINDING_ENTRIES) {
-            throw new IllegalArgumentException("too many binding entries: " + n);
+    public static byte[] encodeBindingsGridSync(BindingsGridSync msg) {
+        validateGridSync(msg);
+        if (msg.cells().size() > MAX_GRID_CELLS) {
+            throw new IllegalArgumentException("too many grid cells: " + msg.cells().size());
         }
-        long need = ProtocolBuf.varIntEncodedSize(n);
-        for (BindingEntry e : msg.entries()) {
+        List<GridBindingCell> cells = dedupeGridCellsLastWins(msg.cells());
+        long need = 1L;
+        for (String t : msg.categoryTitles()) {
+            need += (long) ProtocolBuf.utfEncodedSize(t, MAX_CATEGORY_TITLE_UTF8_BYTES);
+        }
+        need += (long) ProtocolBuf.varIntEncodedSize(cells.size());
+        for (GridBindingCell e : cells) {
+            need += 2L;
             need += (long) ProtocolBuf.utfEncodedSize(e.actionId(), MAX_ACTION_ID_UTF8_BYTES);
             need += (long) ProtocolBuf.utfEncodedSize(e.displayName());
             need += (long) ProtocolBuf.varIntEncodedSize(e.defaultKey());
             need += 1L;
-            need += (long) ProtocolBuf.utfEncodedSize(e.category(), MAX_CATEGORY_UTF8_BYTES);
+            need += (long) ProtocolBuf.utfEncodedSize(e.lore(), MAX_LORE_UTF8_BYTES);
         }
         if (need > MAX_BINDINGS_SYNC_ENCODED_BYTES) {
             throw new IllegalArgumentException("bindings payload too large");
         }
-        ByteBuffer buf = allocateForEncode(need, "bindings_sync");
-        ProtocolBuf.writeVarInt(buf, n);
-        for (BindingEntry e : msg.entries()) {
+        ByteBuffer buf = allocateForEncode(need, "bindings_grid");
+        buf.put(BINDINGS_FORMAT_GRID_V1);
+        for (String t : msg.categoryTitles()) {
+            ProtocolBuf.writeUtf(buf, t, MAX_CATEGORY_TITLE_UTF8_BYTES);
+        }
+        ProtocolBuf.writeVarInt(buf, cells.size());
+        for (GridBindingCell e : cells) {
+            buf.put((byte) e.categorySlot());
+            buf.put((byte) e.keySlot());
             ProtocolBuf.writeUtf(buf, e.actionId(), MAX_ACTION_ID_UTF8_BYTES);
             ProtocolBuf.writeUtf(buf, e.displayName());
             ProtocolBuf.writeVarInt(buf, e.defaultKey());
             ProtocolBuf.writeByte(buf, e.overrideVanilla() ? 1 : 0);
-            ProtocolBuf.writeUtf(buf, e.category(), MAX_CATEGORY_UTF8_BYTES);
+            ProtocolBuf.writeUtf(buf, e.lore(), MAX_LORE_UTF8_BYTES);
         }
         buf.flip();
         byte[] out = new byte[buf.remaining()];
@@ -265,26 +347,56 @@ public final class ProtocolMessages {
         return out;
     }
 
-    public static BindingsSync decodeBindingsSync(byte[] data) {
+    public static BindingsGridSync decodeBindingsGridSync(byte[] data) {
         if ((long) data.length > MAX_BINDINGS_SYNC_ENCODED_BYTES) {
             throw new IllegalArgumentException("bindings payload too large");
         }
         ByteBuffer buf = ByteBuffer.wrap(data);
-        int n = ProtocolBuf.readVarInt(buf);
-        if (n < 0 || n > MAX_BINDING_ENTRIES) {
-            throw new IllegalArgumentException("invalid binding count: " + n);
+        if (!buf.hasRemaining()) {
+            throw new IllegalArgumentException("bindings: empty payload");
         }
-        List<BindingEntry> list = new ArrayList<>(n);
+        byte format = buf.get();
+        if (format != BINDINGS_FORMAT_GRID_V1) {
+            throw new IllegalArgumentException("unsupported bindings format: " + format);
+        }
+        List<String> titles = new ArrayList<>(GRID_CATEGORY_SLOTS);
+        for (int i = 0; i < GRID_CATEGORY_SLOTS; i++) {
+            titles.add(ProtocolBuf.readUtf(buf, MAX_CATEGORY_TITLE_UTF8_BYTES));
+        }
+        int n = ProtocolBuf.readVarInt(buf);
+        if (n < 0 || n > MAX_GRID_CELLS) {
+            throw new IllegalArgumentException("invalid grid cell count: " + n);
+        }
+        List<GridBindingCell> list = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
+            int cat = buf.get() & 0xFF;
+            int ks = buf.get() & 0xFF;
+            if (cat >= GRID_CATEGORY_SLOTS || ks >= GRID_KEYS_PER_CATEGORY) {
+                throw new IllegalArgumentException("invalid grid cell: categorySlot=" + cat + " keySlot=" + ks);
+            }
             String id = ProtocolBuf.readUtf(buf, MAX_ACTION_ID_UTF8_BYTES);
             String name = ProtocolBuf.readUtf(buf);
             int key = ProtocolBuf.readVarInt(buf);
             boolean ov = ProtocolBuf.readUnsignedByte(buf) != 0;
-            String cat = ProtocolBuf.readUtf(buf, MAX_CATEGORY_UTF8_BYTES);
-            list.add(new BindingEntry(id, name, key, ov, cat));
+            String lore = ProtocolBuf.readUtf(buf, MAX_LORE_UTF8_BYTES);
+            list.add(new GridBindingCell(cat, ks, id, name, key, ov, lore));
         }
-        requireFullyConsumed(buf, "bindings_sync");
-        return new BindingsSync(List.copyOf(list));
+        requireFullyConsumed(buf, "bindings_grid");
+        return new BindingsGridSync(List.copyOf(titles), List.copyOf(list));
+    }
+
+    private static void validateGridSync(BindingsGridSync msg) {
+        if (msg.categoryTitles().size() != GRID_CATEGORY_SLOTS) {
+            throw new IllegalArgumentException("categoryTitles must have length " + GRID_CATEGORY_SLOTS);
+        }
+        for (GridBindingCell c : msg.cells()) {
+            if (c.categorySlot() < 0 || c.categorySlot() >= GRID_CATEGORY_SLOTS) {
+                throw new IllegalArgumentException("invalid categorySlot: " + c.categorySlot());
+            }
+            if (c.keySlot() < 0 || c.keySlot() >= GRID_KEYS_PER_CATEGORY) {
+                throw new IllegalArgumentException("invalid keySlot: " + c.keySlot());
+            }
+        }
     }
 
     public static byte[] encodeKeyAction(KeyAction msg) {

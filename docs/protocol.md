@@ -6,8 +6,12 @@ Binary layout is implemented in [`ProtocolMessages`](https://github.com/RafaelK-
 
 | Layer | Where | Meaning |
 | --- | --- | --- |
-| **Protocol version** | `protocolVersion` in packets, `KrepapiProtocolVersion.CURRENT` | Wire layout and field semantics. Bump when the binary format changes. |
-| **Build version** | `minModVersion` / `modVersion` (UTF-8 strings) | SemVer-style **KrepAPI client mod release** (e.g. `1.2.0`). Compared with [`KrepapiBuildVersion`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiBuildVersion.java) (numeric `major.minor.patch`, optional `-prerelease`; `+build` metadata ignored). Short cores like `1.0` are treated as `1.0.0` (implicit zero patch) **when parsing a plain version string**. Optional leading `v`/`V` before a digit is stripped. If both compared strings fail to parse, ordering falls back to lexicographic `String.compareTo`. |
+| **Wire handshake** | First 5 bytes of `s2c_hello` / `c2s_client_info`: magic `0x4B`, `schema`, `major`, `minor`, `patch` (unsigned bytes). [`KrepapiProtocolVersion.CURRENT_WIRE`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiProtocolVersion.java) is **schema 1** and **1.0.0**. Peers must match exactly or the server kicks (`PROTOCOL_MISMATCH`). **Legacy** clients that sent a leading **varint** only (old values 1–3) are **not** supported. |
+| **Build version** | `minModVersion` / `modVersion` (UTF-8 strings) | SemVer-style **KrepAPI client mod release** (e.g. `1.0.0`). Compared with [`KrepapiBuildVersion`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiBuildVersion.java) (numeric `major.minor.patch`, optional `-prerelease`; `+build` metadata ignored). Short cores like `1.0` are treated as `1.0.0` (implicit zero patch) **when parsing a plain version string**. Optional leading `v`/`V` before a digit is stripped. If both compared strings fail to parse, ordering falls back to lexicographic `String.compareTo`. |
+
+### Release 1.0.0 vs alpha lineage
+
+**1.0.0** is the first **stable** KrepAPI release line in this repository. Older published builds that used version numbers like `1.3.x` without the new wire prefix are considered **alpha** and can be referred to as **a1.x.x** (alpha of the same numeric core). They do **not** interoperate with 1.0.0+ clients or servers: the handshake bytes differ at the first octet.
 
 ### Build requirement expressions (Paper / Fabric server)
 
@@ -99,7 +103,7 @@ Identifiers match vanilla custom payload ids (`namespace:path`):
 | Id | Direction | Purpose |
 | --- | --- | --- |
 | `krepapi:s2c_hello` | S → C | Handshake challenge + **client build requirement summary** (UTF-8; see build requirement expressions above). |
-| `krepapi:c2s_client_info` | C → S | Client **build** version, protocol version, capabilities, echoed nonce. |
+| `krepapi:c2s_client_info` | C → S | Client **build** version, wire handshake (schema + semver), capabilities, echoed nonce. |
 | `krepapi:s2c_bindings` | S → C | Server-defined key bindings. |
 | `krepapi:s2c_raw_capture` | S → C | Enable/disable server-driven raw key capture (protocol v2+). |
 | `krepapi:s2c_intercept_keys` | S → C | Block vanilla handling for well-known keys (protocol v2+). |
@@ -120,9 +124,10 @@ Reference implementations **do not send** `s2c_mouse_capture` unless the client 
 
 | Constant | Value | Applies to |
 | --- | --- | --- |
-| `MAX_BINDING_ENTRIES` | 2048 | `s2c_bindings` row count |
+| `MAX_GRID_CELLS` | 320 (10×32) | occupied cells in one `s2c_bindings` grid sync |
 | `MAX_ACTION_ID_UTF8_BYTES` | 256 | `actionId` in bindings and `c2s_key_action` |
-| `MAX_CATEGORY_UTF8_BYTES` | 256 | binding `category` |
+| `MAX_CATEGORY_TITLE_UTF8_BYTES` | 256 | per-slot category **title** in `s2c_bindings` |
+| `MAX_LORE_UTF8_BYTES` | 8192 | cell `lore` (empty = no tooltip) |
 | `MAX_RAW_CAPTURE_KEYS` | 256 | GLFW keys in `s2c_raw_capture` whitelist |
 | `MAX_INTERCEPT_ENTRIES` | 32 | rows in `s2c_intercept_keys` |
 
@@ -136,7 +141,11 @@ Encoded `s2c_bindings` is rejected if the computed size exceeds a large internal
 
 | Field | Type |
 | --- | --- |
-| protocolVersion | varint |
+| magic | byte — must be `0x4B` (`KrepapiProtocolVersion.WIRE_MAGIC`) |
+| schema | byte — `1` for the first stable wire generation |
+| major | byte — protocol semver major (current: `1`) |
+| minor | byte — protocol semver minor (current: `0`) |
+| patch | byte — protocol semver patch (current: `0`) |
 | flags | byte (`HELLO_FLAG_REQUIRE_RESPONSE = 1`) |
 | minModVersion | UTF-8 (**requirement summary** — highest floor if all constraints are `>=`, else `"; "`-joined specs; see **Build requirement expressions** earlier in this doc) |
 | challengeNonce | int64 |
@@ -145,21 +154,29 @@ Encoded `s2c_bindings` is rejected if the computed size exceeds a large internal
 
 | Field | Type |
 | --- | --- |
-| protocolVersion | varint |
+| magic | byte — `0x4B` |
+| schema | byte |
+| major | byte |
+| minor | byte |
+| patch | byte |
 | modVersion | UTF-8 (client KrepAPI build version) |
 | capabilities | varint (bitfield, see `KrepapiCapabilities`) |
 | challengeNonce | int64 |
 
 ## `s2c_bindings`
 
+Binary body matches [`ProtocolMessages.encodeBindingsGridSync`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/ProtocolMessages.java) (strict framing). Fabric wraps that byte array in the `CustomPayload` codec (length-prefixed blob).
+
 | Field | Type |
 | --- | --- |
-| count | varint |
-| × count | `actionId` UTF-8 (≤ 256 B), `displayName` UTF-8 (≤ 32767 B), `defaultKey` varint (GLFW key), `overrideVanilla` boolean, `category` UTF-8 (≤ 256 B) |
+| format | byte — must be `BINDINGS_FORMAT_GRID_V1` (`2`) |
+| × 10 | category title UTF-8 per slot (`0…9`, ≤ `MAX_CATEGORY_TITLE_UTF8_BYTES`; empty = default label) |
+| cellCount | varint (≤ `MAX_GRID_CELLS`) |
+| × cellCount | `categorySlot` byte (`0…9`), `keySlot` byte (`0…31`), `actionId` UTF-8 (≤ 256 B), `displayName` UTF-8 (≤ 32767 B), `defaultKey` varint (GLFW), `overrideVanilla` byte (`0`/`1`), `lore` UTF-8 (≤ `MAX_LORE_UTF8_BYTES`) |
 
-The Fabric KrepAPI client uses `displayName` for the controls-row label and `category` for grouping and section titles (see `docs/client-api.md` and `KeyMappingCompat` / `ServerBindingLabels`). Category ids map to **two** language keys (`key.category.*` and `key.categories.*`); see **Category translation keys** there so labels stay correct across Minecraft versions.
+Duplicate `(categorySlot, keySlot)` pairs collapse to **last wins** (encode and apply). The Fabric client maps each cell to a fixed **`KeyMapping`** in a **10×32** grid: translation keys `krepapi.category.{c}.key.{k}` and `KeyMapping.Category` ids `krepapi:s00` … `krepapi:s09`. It injects row labels and category titles into the active language map at apply time (`ServerBindingLabels`). Empty grid cells and categories with no occupied cells are hidden in the controls list (`KeyBindsScreenMixin`).
 
-Large lists may use Fabric `registerLarge` on the client mod; Paper should keep payloads within server limits or split logic client-side.
+The Fabric mod registers `registerLarge` for this channel; keep encoded size within server/network limits.
 
 ## `c2s_key_action`
 
@@ -291,26 +308,17 @@ Paper sends the same bytes via `Player.sendPluginMessage(plugin, channel, byte[]
 
 ## Optional follow-ups
 
-### Runtime QA: bindings updates and disconnect (duplicate / leak check)
+### Runtime QA: grid bindings updates and disconnect (duplicate / leak check)
 
-The reference Fabric client clears previous server `KeyMapping`s before applying a new `s2c_bindings` (`ServerBindingManager.applyBindings` → `clear`) and again on play disconnect (`ClientPlayConnectionEvents.DISCONNECT` → `ServerBindingManager.clear`). **Suggested manual checks** (per supported Minecraft line):
+The reference Fabric client clears previous server-driven key state before applying a new `s2c_bindings` (`ServerBindingManager.applyBindings` → `clear`) and again on play disconnect (`ClientPlayConnectionEvents.DISCONNECT` → `ServerBindingManager.clear`). **Suggested manual checks** (per supported Minecraft line):
 
-1. Join a server that sends `s2c_bindings` with a few rows; open **Options → Controls** and note KrepAPI rows and category grouping.
-2. Have the server send a **second** `s2c_bindings` with a changed set (e.g. remove one `actionId`, add another, change `displayName` / `category`). Re-open Controls: expect **no duplicate** rows for the same `actionId`, removed keys gone, labels updated.
+1. Join a server that sends `s2c_bindings` with a few **cells**; open **Options → Controls** and note KrepAPI rows under categories `krepapi:s00` … `krepapi:s09`.
+2. Have the server send a **second** `s2c_bindings` with a changed set (e.g. move an `actionId` to another slot, clear a slot by omission, change `displayName` or a category title). Re-open Controls: expect **no duplicate** `actionId` rows, removed keys gone, labels updated.
 3. **Disconnect** (or kick) back to title; open Controls again: expect **no** leftover server binding rows for the disconnected session.
 4. **Reconnect** and confirm a normal hello + bindings cycle.
 
-Automated coverage here is limited (client KeyMapping registries are environment-heavy); this checklist guards against regressions in unregister paths or ordering.
+Automated coverage here is limited (client KeyMapping registries are environment-heavy); this checklist guards against regressions in clear/apply ordering.
 
-### Open spec decision: `displayName` / `category` on `s2c_bindings`
+### Labels and titles
 
-**Today:** The wire format includes `displayName` and `category` for each row. The reference **Fabric** client uses them for the controls UI (`KeyMapping` label + `KeyMapping.Category`, plus `ServerBindingLabels` language injection); see [`docs/client-api.md`](client-api.md). Paper and other producers only need the bytes on the wire; semantics for non-Fabric consumers are not enforced by `protocol`.
-
-**Decision (for a future protocol bump or wiki note):**
-
-| Direction | Summary |
-| --- | --- |
-| **Keep in spec** | Treat labels as part of the contract: any compliant client that renders server bindings should map these fields similarly (or document a minimal subset, e.g. `displayName` required, `category` optional with default). |
-| **Narrow or remove** | If most integrations only need `actionId` + `defaultKey` + `overrideVanilla`, consider a slimmer packet or optional fields in a **new protocol version** (breaking change; coordinate `KrepapiProtocolVersion` and both Fabric lines). |
-
-Record the chosen direction in this doc and in [`KrepapiProtocolVersion`](https://github.com/RafaelK-F/KrepAPI/blob/main/protocol/src/main/java/net/shik/krepapi/protocol/KrepapiProtocolVersion.java) release notes when decided.
+The wire format carries **per-cell** `displayName` and optional `lore`, plus **10** category **title** strings (one per category slot). The reference Fabric client maps cells to fixed grid positions and injects strings via `ServerBindingLabels`; see [`docs/client-api.md`](client-api.md). Producers must send **`BINDINGS_FORMAT_GRID_V1`** bodies as documented above; older flat list layouts are not supported.

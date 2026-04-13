@@ -67,6 +67,10 @@ shadowJar {
     // Shadow does not relocate META-INF/services file names; we ship our own relocated copy
     // in src/client/resources and exclude the stale original from the MoulConfig JAR.
     exclude 'META-INF/services/io.github.notenoughupdates.moulconfig.common.IMinecraft'
+
+    // Default classifier is "all" → *-all.jar next to the remapped mod; only remapJar needs this file.
+    archiveClassifier.set("shadow-input")
+    destinationDirectory.set(layout.buildDirectory.dir("tmp/shadow-work"))
 }
 
 remapJar {
@@ -105,11 +109,7 @@ java {
     withSourcesJar()
 }
 
-jar {
-    from("${rootProject.projectDir}/LICENSE") {
-        rename { "${it}_${project.base.archivesName.get()}" }
-    }
-}
+apply from: rootProject.file('gradle/fabric-license.gradle')
 
 publishing {
     publications {

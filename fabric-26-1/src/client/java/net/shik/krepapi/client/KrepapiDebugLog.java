@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.fabricmc.loader.api.FabricLoader;
+import net.shik.krepapi.protocol.WireHandshakeHeader;
 
 /**
  * Append-only NDJSON debug log for a single KrepAPI client session.
@@ -42,7 +43,7 @@ public final class KrepapiDebugLog {
         return enabled;
     }
 
-    public static void beginSession(String serverAddress, String modVersion, int protocolVersion) {
+    public static void beginSession(String serverAddress, String modVersion, WireHandshakeHeader wire) {
         if (!isDebugEnabled()) {
             return;
         }
@@ -72,12 +73,14 @@ public final class KrepapiDebugLog {
         write("session_start",
                 "\"serverAddress\":" + jsonString(serverAddress)
                         + ",\"modVersion\":" + jsonString(modVersion)
-                        + ",\"protocolVersion\":" + protocolVersion);
+                        + ",\"wireSchema\":" + wire.schema()
+                        + ",\"wireSemver\":" + jsonString(wire.major() + "." + wire.minor() + "." + wire.patch()));
     }
 
-    public static void handshakeSent(int protocolVersion, int capabilities, String modVersion) {
+    public static void handshakeSent(WireHandshakeHeader wire, int capabilities, String modVersion) {
         write("handshake_sent",
-                "\"protocolVersion\":" + protocolVersion
+                "\"wireSchema\":" + wire.schema()
+                        + ",\"wireSemver\":" + jsonString(wire.major() + "." + wire.minor() + "." + wire.patch())
                         + ",\"capabilities\":\"0x" + Integer.toHexString(capabilities) + "\""
                         + ",\"modVersion\":" + jsonString(modVersion));
     }

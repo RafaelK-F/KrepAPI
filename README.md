@@ -17,18 +17,20 @@ The server never touches GLFW directly; the client does not expose raw input wit
 
 ```
 Player joins
-    └─► Server sends       s2c_hello        (protocolVersion, minModVersion, nonce)
-            └─► Client replies             c2s_client_info  (version, capabilities, nonce echo)
-                    └─► Server sends        s2c_bindings     (actionId list + default keys)
-                                └─► Client registers KeyMapping entries
+    └─► Server sends       s2c_hello        (wire 1.0.0 prefix, minModVersion, nonce)
+            └─► Client replies             c2s_client_info  (wire 1.0.0 prefix, modVersion, capabilities, nonce echo)
+                    └─► Server sends        s2c_bindings     (grid: category titles + sparse cells: slots, actionId, displayName, key, lore, …)
+                                └─► Client reuses pre-registered 10×32 grid KeyMappings (Fabric forbids late registration)
                                         └─► On press/release → c2s_key_action (actionId, phase, seq)
 ```
 
-Protocol v2 adds optional `s2c_raw_capture` → `c2s_raw_key`, and `s2c_intercept_keys` for blocking vanilla handling of Esc / F3 / Tab / F1 / F5 (see [docs/protocol.md](docs/protocol.md)).
+At client startup the mod registers a **fixed 10×32 grid** of `KeyMapping`s (translation keys `krepapi.category.{c}.key.{k}`, categories `krepapi:s00` … `krepapi:s09`). Each `s2c_bindings` sync **reconfigures** occupied cells (default key, labels, lore) instead of registering new keys. Empty grid slots and unused category headers are hidden in the controls list (`KeyBindsScreenMixin`). See [Client API](docs/client-api.md).
+
+Protocol v2 adds optional `s2c_raw_capture` → `c2s_raw_key`, and `s2c_intercept_keys` for blocking vanilla handling of Esc / F3 / Tab / F1 / F5 (see [docs/protocol.md](docs/protocol.md)). Each grid cell may include optional **lore** (plain tooltip text in controls).
 
 ## Versioning
 
-There are two layers: a wire **protocol version** (packet layout, `KrepapiProtocolVersion.CURRENT`) and a SemVer **build version** for the client mod (`fabric.mod.json` / handshake strings). Servers enforce **requirement expressions** (floors, exact, ceilings, minor lines) via config and APIs; see [docs/protocol.md](docs/protocol.md).
+There are two layers: a wire **handshake** (5-byte prefix: magic `0x4B` + schema + protocol semver **1.0.0**, `KrepapiProtocolVersion.CURRENT_WIRE`) and a SemVer **build version** for the client mod (`fabric.mod.json` / handshake strings). Pre-1.0 numeric releases are legacy **alpha** (a1.x.x); they do not speak the new wire layout. Servers enforce **requirement expressions** (floors, exact, ceilings, minor lines) via config and APIs; see [docs/protocol.md](docs/protocol.md).
 
 ## Modules
 
@@ -38,7 +40,7 @@ There are two layers: a wire **protocol version** (packet layout, `KrepapiProtoc
 | `:fabric-1-21` | Fabric mod for **1.21.x** (payloads, mixins, client/server networking). |
 | `:fabric-26-1` | Fabric mod for **26.1.x** (same features; 26.1 Fabric API / Loom wiring). |
 | (root) | Aggregator only — no game sources here. |
-| `:paper-plugin` | Reference Paper plugin (plugin messages + `config.yml`). |
+| `:paper-plugin` | Reference Paper plugin (plugin messages + `config.yml`) — only if `paper-plugin/` exists in the tree. |
 
 Fabric gameplay code lives **only** in `fabric-1-21/` and `fabric-26-1/` (see `settings.gradle`). Keep them in sync when changing behaviour that applies to both Minecraft lines; do not add a second parallel tree.
 
@@ -46,8 +48,9 @@ Fabric gameplay code lives **only** in `fabric-1-21/` and `fabric-26-1/` (see `s
 
 ```bash
 ./gradlew build
-./gradlew :paper-plugin:jar
 ./gradlew :protocol:test
+# Optional, when paper-plugin module is present:
+# ./gradlew :paper-plugin:jar
 ```
 
 The `:protocol:test` task runs JUnit tests for encode/decode, version comparison, and version policy only (no Minecraft on the classpath).
@@ -71,7 +74,7 @@ That happens while Loom fetches Minecraft or related files (Mojang / Fabric / li
 
 In-repo:
 
-- [Wire protocol](docs/protocol.md) — includes [optional follow-ups](docs/protocol.md#optional-follow-ups) (manual bindings QA, open `displayName`/`category` spec choice)
+- [Wire protocol](docs/protocol.md) — includes [optional follow-ups](docs/protocol.md#optional-follow-ups) (manual bindings QA for grid sync)
 - [Paper plugin](docs/paper-plugin.md)
 - [Client API](docs/client-api.md)
 

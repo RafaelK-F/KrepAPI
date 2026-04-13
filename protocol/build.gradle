@@ -13,6 +13,10 @@ java {
     withSourcesJar()
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testRuntimeOnly platform('org.junit:junit-bom:5.11.4')

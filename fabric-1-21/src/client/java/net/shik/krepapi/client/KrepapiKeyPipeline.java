@@ -41,10 +41,10 @@ public final class KrepapiKeyPipeline {
         LISTENERS.removeIf(r -> r.listener == listener);
     }
 
-    static void setServerOverrideBindings(List<ProtocolMessages.BindingEntry> entries) {
+    static void setServerOverrideBindings(List<ProtocolMessages.GridBindingCell> entries) {
         SERVER_OVERRIDE_ACTION_IDS.clear();
         OVERRIDE_HELD_ACTION_IDS.clear();
-        for (ProtocolMessages.BindingEntry e : entries) {
+        for (ProtocolMessages.GridBindingCell e : entries) {
             if (e.overrideVanilla()) {
                 SERVER_OVERRIDE_ACTION_IDS.add(e.actionId());
             }

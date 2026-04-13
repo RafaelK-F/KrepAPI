@@ -1,10 +1,10 @@
-// Aggregator: run `gradlew build` to build protocol, both Fabric targets, and the Paper reference plugin.
+// Aggregator: `gradlew build` runs each included subproject (protocol → fabric-*; paper-plugin if present).
 
 plugins {
     id 'base'
 }
 
-description = 'KrepAPI — Fabric (1.21 + 26.1) and Paper reference'
+description = 'KrepAPI — Fabric (1.21 + 26.1) and optional Paper reference'
 
 allprojects {
     group = findProperty('maven_group') ?: 'net.shik'

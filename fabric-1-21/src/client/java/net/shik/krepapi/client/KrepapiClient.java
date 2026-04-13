@@ -13,6 +13,7 @@ public class KrepapiClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        ServerBindingManager.ensurePoolInitialized();
         KrepapiClientNetworking.register();
         ClientTickEvents.END_CLIENT_TICK.register(ServerBindingManager::tick);
 

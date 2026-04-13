@@ -28,15 +28,15 @@ public final class KrepapiClientNetworking {
             if (context.client().getCurrentServer() != null) {
                 serverAddress = context.client().getCurrentServer().ip;
             }
-            KrepapiDebugLog.beginSession(serverAddress, modVersion, KrepapiProtocolVersion.CURRENT);
+            KrepapiDebugLog.beginSession(serverAddress, modVersion, KrepapiProtocolVersion.CURRENT_WIRE);
             int caps = KrepapiCapabilities.KEY_OVERRIDE
                     | KrepapiCapabilities.RAW_KEYS
                     | KrepapiCapabilities.SERVER_RAW_CAPTURE
                     | KrepapiCapabilities.INTERCEPT_KEYS
                     | KrepapiCapabilities.SERVER_MOUSE_CAPTURE;
-            KrepapiDebugLog.handshakeSent(KrepapiProtocolVersion.CURRENT, caps, modVersion);
+            KrepapiDebugLog.handshakeSent(KrepapiProtocolVersion.CURRENT_WIRE, caps, modVersion);
             ClientPlayNetworking.send(new KrepapiClientInfoC2SPayload(
-                    KrepapiProtocolVersion.CURRENT,
+                    KrepapiProtocolVersion.CURRENT_WIRE,
                     modVersion,
                     caps,
                     payload.challengeNonce()
@@ -45,7 +45,7 @@ public final class KrepapiClientNetworking {
 
         ClientPlayNetworking.registerGlobalReceiver(KrepapiBindingsS2CPayload.TYPE, (payload, context) -> {
             Minecraft client = context.client();
-            client.execute(() -> ServerBindingManager.applyBindings(client, payload.entries()));
+            client.execute(() -> ServerBindingManager.applyBindings(client, payload.sync()));
         });
 
         ClientPlayNetworking.registerGlobalReceiver(KrepapiRawCaptureS2CPayload.TYPE, (payload, context) -> {
